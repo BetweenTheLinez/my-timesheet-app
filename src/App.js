@@ -274,7 +274,7 @@ const App = () => {
         setReportError('');
 
         // Ensure API key is available (Canvas should inject it, but good to check)
-        const apiKey = ""; // Canvas will inject the API key here
+        const apiKey = "AIzaSyDhV319hIAYhrBAsDaMLMnCO5RlBA0ml3U"; // Canvas will inject the API key here
         if (!apiKey) {
             setReportError("API Key is not configured. Cannot generate report.");
             setIsGeneratingReport(false);
@@ -353,7 +353,7 @@ Net Working Hours: ${formatDecimalHours(currentNetHours)} Hrs
         setReportError('');
 
         // Ensure API key is available
-        const apiKey = ""; // Canvas will inject the API key here
+        const apiKey = "AIzaSyDhV319hIAYhrBAsDaMLMnCO5RlBA0ml3U"; // Canvas will inject the API key here
         if (!apiKey) {
             setReportError("API Key is not configured. Cannot generate report.");
             setIsGeneratingReport(false);
