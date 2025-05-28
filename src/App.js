@@ -273,12 +273,13 @@ const App = () => {
         setGeneratedDailyReport('');
         setReportError('');
 
-        // Ensure API key is available (Canvas should inject it, but good to check)
-        const apiKey = "AIzaSyDhV319hIAYhrBAsDaMLMnCO5RlBA0ml3U"; // Canvas will inject the API key here
+        // IMPORTANT: Replace "" with your actual Gemini API Key from Google AI Studio
+        // Example: const apiKey = "AIzaSyC_YOUR_ACTUAL_KEY_HERE";
+        const apiKey = ""; 
         if (!apiKey) {
-            setReportError("API Key is not configured. Cannot generate report.");
+            setReportError("API Key is not configured. Please add your API key to src/App.js.");
             setIsGeneratingReport(false);
-            console.error("Gemini API Key is missing.");
+            console.error("Gemini API Key is missing. Please add it to the apiKey variable in src/App.js.");
             return;
         }
 
@@ -294,16 +295,13 @@ Job Details:
         if (currentJobs.length === 0 || currentJobs.every(job => !job.jobNumber && !job.jobLocation && !job.travelStartTime && !job.workStartTime && !job.workFinishTime && !job.travelHomeTime)) {
             prompt += "No job entries for this day.\n";
         } else {
+            prompt += "Jobs for today:\n"; // Added clarifying heading
             currentJobs.forEach((job, index) => {
                 if (job.jobNumber || job.jobLocation || job.travelStartTime || job.workStartTime || job.workFinishTime || job.travelHomeTime) {
-                    prompt += `Job ${index + 1}:
-  Job Number: ${job.jobNumber || 'N/A'}
-  Job Location: ${job.jobLocation || 'N/A'}
-  Travel Start: ${job.travelStartTime || 'N/A'}
-  Work Start: ${job.workStartTime || 'N/A'}
-  Work Finish: ${job.workFinishTime || 'N/A'}
-  Travel Home Arrival: ${job.travelHomeTime || 'N/A'}
-  Total Time for Job: ${formatDecimalHours(job.totalTimeWorkedMinutes)} Hrs\n`;
+                    prompt += `- Job ${job.jobNumber || 'N/A'} at ${job.jobLocation || 'N/A'}\n`; // Simplified job entry
+                    prompt += `  Travel Start: ${job.travelStartTime || 'N/A'}, Work Start: ${job.workStartTime || 'N/A'}\n`;
+                    prompt += `  Work Finish: ${job.workFinishTime || 'N/A'}, Travel Home Arrival: ${job.travelHomeTime || 'N/A'}\n`;
+                    prompt += `  Total Time for Job: ${formatDecimalHours(job.totalTimeWorkedMinutes)} Hrs\n`;
                 }
             });
         }
@@ -353,18 +351,21 @@ Net Working Hours: ${formatDecimalHours(currentNetHours)} Hrs
         setReportError('');
 
         // Ensure API key is available
-        const apiKey = "AIzaSyDhV319hIAYhrBAsDaMLMnCO5RlBA0ml3U"; // Canvas will inject the API key here
+        const apiKey = ""; // Canvas will inject the API key here
         if (!apiKey) {
-            setReportError("API Key is not configured. Cannot generate report.");
+            setReportError("API Key is not configured. Please add your API key to src/App.js.");
             setIsGeneratingReport(false);
-            console.error("Gemini API Key is missing.");
+            console.error("Gemini API Key is missing. Please add it to the apiKey variable in src/App.js.");
             return;
         }
 
-        let prompt = `Generate a comprehensive weekly timesheet summary for payroll based on the following daily information, covering the period from ${weeklyReportStartDate} to ${weeklyReportEndDate}. Provide a clear overview of each day's work and a total for the entire week.
+        let prompt = `Generate a comprehensive weekly timesheet summary for payroll based on the following daily information.
 
 Employee Name: ${employeeName || 'N/A'}
 Truck Number: ${truckNumber || 'N/A'}
+Week of: ${weeklyReportStartDate} to ${weeklyReportEndDate}
+
+--- Daily Breakdown ---
 `;
 
         let totalWeeklyHours = 0;
@@ -374,32 +375,35 @@ Truck Number: ${truckNumber || 'N/A'}
         }).sort();
 
         if (datesToReport.length === 0) {
-            prompt += `No timesheet data entered for the selected week (${weeklyReportStartDate} to ${weeklyReportEndDate}).\n`;
+            prompt += `No timesheet data entered for the selected week.\n`;
         } else {
             datesToReport.forEach(date => {
                 const dayData = weeklyData[date];
                 const dayOfWeekForReport = getDayOfWeek(date);
 
-                prompt += `\n--- ${dayOfWeekForReport}, ${date} ---\n`;
+                prompt += `\n${dayOfWeekForReport}, ${date}:\n`;
+                prompt += `  Total Hours: ${formatDecimalHours(dayData.totalHours || 0)} Hrs\n`;
+                prompt += `  Net Working Hours: ${formatDecimalHours(dayData.netHours || 0)} Hrs\n`;
+                
                 if (!dayData || dayData.jobs.length === 0 || dayData.jobs.every(job => !job.jobNumber && !job.jobLocation && !job.travelStartTime && !job.workStartTime && !job.workFinishTime && !job.travelHomeTime)) {
-                    prompt += "No job entries for this day.\n";
+                    prompt += "  Jobs: No job entries recorded.\n";
                 } else {
+                    prompt += "  Jobs:\n";
                     dayData.jobs.forEach((job, index) => {
                         if (job.jobNumber || job.jobLocation || job.travelStartTime || job.workStartTime || job.workFinishTime || job.travelHomeTime) {
-                            prompt += `Job ${index + 1}: ${job.jobNumber || 'N/A'} at ${job.jobLocation || 'N/A'} - Total: ${formatDecimalHours(job.totalTimeWorkedMinutes)} Hrs\n`;
+                            prompt += `    - ${job.jobNumber || 'N/A'} at ${job.jobLocation || 'N/A'}\n`;
+                            prompt += `      (Worked ${job.workStartTime || 'N/A'} - ${job.workFinishTime || 'N/A'}, Travel Home Arrival: ${job.travelHomeTime || 'N/A'})\n`;
+                            prompt += `      Total for job: ${formatDecimalHours(job.totalTimeWorkedMinutes)} Hrs\n`;
                         }
                     });
                 }
-                prompt += `Daily Total Hours: ${formatDecimalHours(dayData.totalHours)} Hrs\n`;
-                prompt += `Daily Net Working Hours: ${formatDecimalHours(dayData.netHours)} Hrs\n`;
-
                 totalWeeklyHours += (dayData.totalHours || 0);
                 totalWeeklyNetHours += (dayData.netHours || 0);
             });
         }
 
         prompt += `
-\n--- Overall Weekly Summary (${weeklyReportStartDate} to ${weeklyReportEndDate}) ---
+--- Overall Weekly Summary ---
 Total Hours for the Week: ${formatDecimalHours(totalWeeklyHours)} Hrs
 Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)} Hrs
 `;
@@ -737,4 +741,4 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
     );
 };
 
-export default App;
+export default A
