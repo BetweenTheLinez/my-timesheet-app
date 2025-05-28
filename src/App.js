@@ -35,7 +35,7 @@ const createInitialJob = () => ({
     totalTimeWorkedMinutes: 0,
 });
 
-// Function to get today's date in Walpole-MM-DD format
+// Function to get today's date in YYYY-MM-DD format
 const getTodayDate = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
@@ -741,4 +741,4 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
     );
 };
 
-export default A
+export default App;
