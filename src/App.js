@@ -1,18 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 // Helper function to convert time string (HH:MM) to minutes from midnight
-// This function is no longer used for display, as formatDecimalHours is preferred.
-// Keeping it commented out or removed if not needed elsewhere.
-/*
-const minutesToHHMM = (totalMinutes) => {
-    if (isNaN(totalMinutes) || totalMinutes < 0) return '00:00';
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = Math.round(totalMinutes % 60);
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-};
-*/
-
-// Helper function to convert time string (HH:MM) to minutes from midnight
 const timeToMinutes = (timeString) => {
     if (!timeString) return 0;
     const [hours, minutes] = timeString.split(':').map(Number);
@@ -112,7 +100,8 @@ const App = () => {
     const [recipientEmail, setRecipientEmail] = useState('');
 
 
-    // Load data for selectedDate when it changes
+    // EFFECT: Load data for selectedDate when it changes or weeklyData is updated externally
+    // THIS IS THE PRIMARY FIX FOR THE GLITCHING. Removed employeeName, truckNumber from deps.
     useEffect(() => {
         const currentDayData = weeklyData[selectedDate] || {
             employeeName: '',
@@ -120,17 +109,30 @@ const App = () => {
             jobs: Array(3).fill(null).map(() => ({ ...initialJob, id: crypto.randomUUID() })),
             dayOfWeek: getDayOfWeek(selectedDate),
         };
-        // Persist employee name and truck number across days unless explicitly changed by user
-        setEmployeeName(currentDayData.employeeName || employeeName);
-        setTruckNumber(currentDayData.truckNumber || truckNumber);
+
+        // Only update employeeName/truckNumber if they are actually different
+        // or if they are currently blank and new data exists
+        if (currentDayData.employeeName && currentDayData.employeeName !== employeeName) {
+            setEmployeeName(currentDayData.employeeName);
+        } else if (!employeeName && weeklyData[selectedDate]?.employeeName) { // Fallback if currentName is blank but weeklyData has it
+            setEmployeeName(weeklyData[selectedDate].employeeName);
+        }
+
+        if (currentDayData.truckNumber && currentDayData.truckNumber !== truckNumber) {
+            setTruckNumber(currentDayData.truckNumber);
+        } else if (!truckNumber && weeklyData[selectedDate]?.truckNumber) { // Fallback if currentTruck is blank but weeklyData has it
+            setTruckNumber(weeklyData[selectedDate].truckNumber);
+        }
+        
         setJobs(currentDayData.jobs);
-        setDayOfWeek(getDayOfWeek(selectedDate)); // Always derive dayOfWeek from selectedDate
+        setDayOfWeek(getDayOfWeek(selectedDate));
 
         // Clear reports when changing day
         setGeneratedDailyReport('');
         setGeneratedWeeklyReport('');
         setReportError('');
-    }, [selectedDate, weeklyData, employeeName, truckNumber]); // Added employeeName, truckNumber to deps
+    }, [selectedDate, weeklyData]);
+
 
     // Calculate total time worked for a single job
     const calculateJobTotal = useCallback((job) => {
@@ -140,7 +142,8 @@ const App = () => {
         return travelToJobMinutes + workDurationMinutes + travelFromJobMinutes;
     }, []);
 
-    // Effect to recalculate current day's totals whenever jobs data changes
+    // EFFECT: Recalculate current day's totals and save to weeklyData
+    // Dependencies are correct here.
     useEffect(() => {
         let sumTotalMinutes = 0;
         jobs.forEach(job => {
@@ -164,20 +167,19 @@ const App = () => {
         setNetWorkingHoursForCurrentDayMinutes(Math.max(0, currentNetMinutes));
 
         // Save current day's data to weeklyData
-        // Only update if employeeName or truckNumber exist to avoid saving blank entries just from date change
         setWeeklyData(prevWeeklyData => ({
             ...prevWeeklyData,
             [selectedDate]: {
                 employeeName,
                 truckNumber,
                 jobs,
-                dayOfWeek: getDayOfWeek(selectedDate), // Always derive dayOfWeek for saving
+                dayOfWeek: getDayOfWeek(selectedDate),
                 totalHours: sumTotalMinutes,
                 netHours: Math.max(0, currentNetMinutes)
             }
         }));
 
-    }, [jobs, calculateJobTotal, employeeName, truckNumber, selectedDate]); // employeeName and truckNumber are now correctly in dependencies
+    }, [jobs, calculateJobTotal, employeeName, truckNumber, selectedDate]);
 
     // Handle input changes for main header fields
     const handleHeaderInputChange = (field, value) => {
@@ -311,8 +313,6 @@ Truck Number: ${truckNumber || 'N/A'}
                 prompt += `\n--- ${dayOfWeekForReport}, ${date} ---\n`;
                 if (!dayData || dayData.jobs.length === 0 || dayData.jobs.every(job => !job.jobNumber && !job.jobLocation && !job.travelStartTime && !job.workStartTime && !job.workFinishTime && !job.travelHomeTime)) {
                     prompt += "No job entries for this day.\n";
-                    // Still add to totals even if no jobs, if the day data itself was created.
-                    // This scenario shouldn't happen much if we filter only dates with data.
                 } else {
                     dayData.jobs.forEach((job, index) => {
                         if (job.jobNumber || job.jobLocation || job.travelStartTime || job.workStartTime || job.workFinishTime || job.travelHomeTime) {
