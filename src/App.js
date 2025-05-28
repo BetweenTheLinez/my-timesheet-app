@@ -31,11 +31,11 @@ const createInitialJob = () => ({
     travelStartTime: '',
     workStartTime: '',
     workFinishTime: '',
-    travelHomeTime: '',
+    travelHomeTime: '', // This will be renamed to travelHomeArrivalTime
     totalTimeWorkedMinutes: 0,
 });
 
-// Function to get today's date in YYYY-MM-DD format
+// Function to get today's date in Walpole-MM-DD format
 const getTodayDate = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
@@ -130,7 +130,7 @@ const App = () => {
     const calculateJobTotal = useCallback((job) => {
         const travelToJobMinutes = calculateDurationInMinutes(job.travelStartTime, job.workStartTime);
         const workDurationMinutes = calculateDurationInMinutes(job.workStartTime, job.workFinishTime);
-        const travelFromJobMinutes = calculateDurationInMinutes(job.workFinishTime, job.travelHomeTime);
+        const travelFromJobMinutes = calculateDurationInMinutes(job.workFinishTime, job.travelHomeTime); // Use travelHomeTime
         return travelToJobMinutes + workDurationMinutes + travelFromJobMinutes;
     }, []);
 
@@ -273,6 +273,15 @@ const App = () => {
         setGeneratedDailyReport('');
         setReportError('');
 
+        // Ensure API key is available (Canvas should inject it, but good to check)
+        const apiKey = ""; // Canvas will inject the API key here
+        if (!apiKey) {
+            setReportError("API Key is not configured. Cannot generate report.");
+            setIsGeneratingReport(false);
+            console.error("Gemini API Key is missing.");
+            return;
+        }
+
         let prompt = `Generate a concise daily timesheet summary based on the following information. Focus on the jobs completed, total hours, and net working hours. Make it sound like a brief report for a supervisor.
 
 Employee Name: ${employeeName || 'N/A'}
@@ -293,7 +302,7 @@ Job Details:
   Travel Start: ${job.travelStartTime || 'N/A'}
   Work Start: ${job.workStartTime || 'N/A'}
   Work Finish: ${job.workFinishTime || 'N/A'}
-  Travel Home: ${job.travelHomeTime || 'N/A'}
+  Travel Home Arrival: ${job.travelHomeTime || 'N/A'}
   Total Time for Job: ${formatDecimalHours(job.totalTimeWorkedMinutes)} Hrs\n`;
                 }
             });
@@ -309,7 +318,6 @@ Net Working Hours: ${formatDecimalHours(currentNetHours)} Hrs
             let chatHistory = [];
             chatHistory.push({ role: "user", parts: [{ text: prompt }] });
             const payload = { contents: chatHistory };
-            const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
             const response = await fetch(apiUrl, {
@@ -319,15 +327,16 @@ Net Working Hours: ${formatDecimalHours(currentNetHours)} Hrs
             });
 
             const result = await response.json();
+            console.log("Gemini Daily Report API Response:", result); // Log the full response
 
             if (result.candidates && result.candidates.length > 0 &&
                 result.candidates[0].content && result.candidates[0].content.parts &&
-                result.candidates[0].content.parts.length > 0) {
+                result.candidates[0].content.parts.length > 0 && result.candidates[0].content.parts[0].text) {
                 const text = result.candidates[0].content.parts[0].text;
                 setGeneratedDailyReport(text);
             } else {
-                setReportError("Failed to generate daily report. No content received.");
-                console.error("Gemini API response structure unexpected:", result);
+                setReportError("Failed to generate daily report. Unexpected API response structure or empty content.");
+                console.error("Gemini Daily Report API response structure unexpected or empty content:", result);
             }
         } catch (error) {
             setReportError(`Error generating daily report: ${error.message}`);
@@ -342,6 +351,15 @@ Net Working Hours: ${formatDecimalHours(currentNetHours)} Hrs
         setIsGeneratingReport(true);
         setGeneratedWeeklyReport('');
         setReportError('');
+
+        // Ensure API key is available
+        const apiKey = ""; // Canvas will inject the API key here
+        if (!apiKey) {
+            setReportError("API Key is not configured. Cannot generate report.");
+            setIsGeneratingReport(false);
+            console.error("Gemini API Key is missing.");
+            return;
+        }
 
         let prompt = `Generate a comprehensive weekly timesheet summary for payroll based on the following daily information, covering the period from ${weeklyReportStartDate} to ${weeklyReportEndDate}. Provide a clear overview of each day's work and a total for the entire week.
 
@@ -390,7 +408,6 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
             let chatHistory = [];
             chatHistory.push({ role: "user", parts: [{ text: prompt }] });
             const payload = { contents: chatHistory };
-            const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
             const response = await fetch(apiUrl, {
@@ -400,15 +417,16 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
             });
 
             const result = await response.json();
+            console.log("Gemini Weekly Report API Response:", result); // Log the full response
 
             if (result.candidates && result.candidates.length > 0 &&
                 result.candidates[0].content && result.candidates[0].content.parts &&
-                result.candidates[0].content.parts.length > 0) {
+                result.candidates[0].content.parts.length > 0 && result.candidates[0].content.parts[0].text) {
                 const text = result.candidates[0].content.parts[0].text;
                 setGeneratedWeeklyReport(text);
             } else {
-                setReportError("Failed to generate weekly report. No content received.");
-                console.error("Gemini API response structure unexpected:", result);
+                setReportError("Failed to generate weekly report. Unexpected API response structure or empty content.");
+                console.error("Gemini Weekly Report API response structure unexpected or empty content:", result);
             }
         } catch (error) {
             setReportError(`Error generating weekly report: ${error.message}`);
@@ -443,7 +461,7 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
         <div className="min-h-screen bg-gradient-to-br from-blue-100 to-indigo-200 p-4 sm:p-6 font-inter text-gray-800">
             <div className="max-w-6xl mx-auto bg-white shadow-xl rounded-xl p-6 sm:p-8">
                 <h1 className="text-3xl sm:text-4xl font-extrabold text-center text-blue-800 mb-6">
-                    Timesheet for Pro Air Mechanical
+                    Timesheet for Pro-Air Mechanical
                 </h1>
 
                 {/* Header Information */}
@@ -503,7 +521,7 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Travel Start</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Work Start</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Work Finish</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Travel Home</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Travel Home Arrival</th> {/* Updated label */}
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Time Worked (Hrs)</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
                             </tr>
