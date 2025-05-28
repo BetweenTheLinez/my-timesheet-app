@@ -35,7 +35,7 @@ const createInitialJob = () => ({
     totalTimeWorkedMinutes: 0,
 });
 
-// Function to get today's date in YYYY-MM-DD format
+// Function to get today's date in Walpole-MM-DD format
 const getTodayDate = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
@@ -271,7 +271,12 @@ const App = () => {
             return;
         }
 
-        let prompt = `Generate a concise daily timesheet summary based on the following information. Focus on the jobs completed, total hours, and net working hours. Make it sound like a brief report for a supervisor.
+        let prompt = `Generate a concise daily timesheet summary based on the following information.
+        
+        **Instructions for AI:**
+        - Format the output as a simple, easy-to-read text block or bulleted list.
+        - DO NOT use tables, markdown tables, or ASCII art for formatting.
+        - Focus on clarity and readability for an email.
 
 Employee Name: ${currentEmployeeName || 'N/A'}
 Truck Number: ${currentTruckNumber || 'N/A'}
@@ -286,10 +291,14 @@ Job Details:
             prompt += "Jobs for today:\n"; // Added clarifying heading
             currentJobs.forEach((job, index) => {
                 if (job.jobNumber || job.jobLocation || job.travelStartTime || job.workStartTime || job.workFinishTime || job.travelHomeTime) {
-                    prompt += `- Job ${job.jobNumber || 'N/A'} at ${job.jobLocation || 'N/A'}\n`; // Simplified job entry
-                    prompt += `  Travel Start: ${job.travelStartTime || 'N/A'}, Work Start: ${job.workStartTime || 'N/A'}\n`;
-                    prompt += `  Work Finish: ${job.workFinishTime || 'N/A'}, Travel Home Arrival: ${job.travelHomeTime || 'N/A'}\n`;
+                    prompt += `- Job Number: ${job.jobNumber || 'N/A'}\n`;
+                    prompt += `  Location: ${job.jobLocation || 'N/A'}\n`;
+                    prompt += `  Travel Start: ${job.travelStartTime || 'N/A'}\n`;
+                    prompt += `  Work Start: ${job.workStartTime || 'N/A'}\n`;
+                    prompt += `  Work Finish: ${job.workFinishTime || 'N/A'}\n`;
+                    prompt += `  Travel Home Arrival: ${job.travelHomeTime || 'N/A'}\n`;
                     prompt += `  Total Time for Job: ${formatDecimalHours(job.totalTimeWorkedMinutes)} Hrs\n`;
+                    prompt += `\n`; // Add a blank line for readability between jobs
                 }
             });
         }
@@ -348,6 +357,11 @@ Net Working Hours: ${formatDecimalHours(currentNetHours)} Hrs
         }
 
         let prompt = `Generate a comprehensive weekly timesheet summary for payroll based on the following daily information.
+        
+        **Instructions for AI:**
+        - Format the output as a simple, easy-to-read text block or bulleted list.
+        - DO NOT use tables, markdown tables, or ASCII art for formatting.
+        - Focus on clarity and readability for an email.
 
 Employee Name: ${currentEmployeeName || 'N/A'}
 Truck Number: ${currentTruckNumber || 'N/A'}
@@ -379,9 +393,12 @@ Week of: ${weeklyReportStartDate} to ${weeklyReportEndDate}
                     prompt += "  Jobs:\n";
                     dayData.jobs.forEach((job, index) => {
                         if (job.jobNumber || job.jobLocation || job.travelStartTime || job.workStartTime || job.workFinishTime || job.travelHomeTime) {
-                            prompt += `    - ${job.jobNumber || 'N/A'} at ${job.jobLocation || 'N/A'}\n`;
-                            prompt += `      (Worked ${job.workStartTime || 'N/A'} - ${job.workFinishTime || 'N/A'}, Travel Home Arrival: ${job.travelHomeTime || 'N/A'})\n`;
+                            prompt += `    - Job Number: ${job.jobNumber || 'N/A'}\n`;
+                            prompt += `      Location: ${job.jobLocation || 'N/A'}\n`;
+                            prompt += `      Worked: ${job.workStartTime || 'N/A'} - ${job.workFinishTime || 'N/A'}\n`;
+                            prompt += `      Travel Home Arrival: ${job.travelHomeTime || 'N/A'}\n`;
                             prompt += `      Total for job: ${formatDecimalHours(job.totalTimeWorkedMinutes)} Hrs\n`;
+                            prompt += `\n`; // Add a blank line for readability between jobs
                         }
                     });
                 }
