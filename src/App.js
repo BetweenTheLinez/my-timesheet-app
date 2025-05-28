@@ -81,7 +81,7 @@ const App = () => {
     // State for the currently selected date (for daily input)
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
 
-    // Header info (employeeName, truckNumber) now lives within weeklyData for each day
+    // Header info (employeeName, truckNumber) are now controlled by input and stored in weeklyData
     // We'll manage them as part of the current day's data for editing
     const [employeeName, setEmployeeName] = useState('');
     const [truckNumber, setTruckNumber] = useState('');
@@ -98,11 +98,11 @@ const App = () => {
     const [recipientEmail, setRecipientEmail] = useState('');
 
     // --- Derived state for current day's data ---
-    // Access the current day's data from weeklyData
+    // This object ensures we always work with the latest data for the selected day
     const currentDayData = weeklyData[selectedDate] || {
         employeeName: '',
         truckNumber: '',
-        jobs: Array(3).fill(null).map(() => createInitialJob()),
+        jobs: Array(3).fill(null).map(() => createInitialJob()), // Default 3 empty jobs
         dayOfWeek: getDayOfWeek(selectedDate),
         totalHours: 0,
         netHours: 0,
@@ -113,23 +113,20 @@ const App = () => {
     const currentNetHours = currentDayData.netHours;
 
 
-    // EFFECT: Initialize/Load data for selectedDate when it changes
+    // EFFECT: Update top-level employeeName and truckNumber states when selectedDate changes
+    // This ensures the input fields reflect the data for the newly selected day.
     useEffect(() => {
-        // When selectedDate changes, update the employeeName and truckNumber states
-        // to reflect what's stored for that specific day, or keep them blank if new day.
         setEmployeeName(currentDayData.employeeName);
         setTruckNumber(currentDayData.truckNumber);
         
-        // Ensure dayOfWeek is correctly set based on selectedDate
-        // This is now derived directly from selectedDate, so no need for a separate state update here.
-
         // Clear reports when changing day
         setGeneratedDailyReport('');
         setGeneratedWeeklyReport('');
         setReportError('');
-    }, [selectedDate, weeklyData]); // Depend on weeklyData to ensure updates are reflected
+    }, [selectedDate, currentDayData.employeeName, currentDayData.truckNumber]); // Depend on specific properties to avoid re-render loops
 
-    // Calculate total time worked for a single job
+
+    // Calculate total time worked for a single job (memoized)
     const calculateJobTotal = useCallback((job) => {
         const travelToJobMinutes = calculateDurationInMinutes(job.travelStartTime, job.workStartTime);
         const workDurationMinutes = calculateDurationInMinutes(job.workStartTime, job.workFinishTime);
@@ -138,7 +135,7 @@ const App = () => {
     }, []);
 
     // EFFECT: Recalculate current day's totals and save to weeklyData
-    // This effect now depends on currentJobs (derived from weeklyData) and header inputs
+    // This effect runs whenever currentJobs, employeeName, truckNumber, or selectedDate changes.
     useEffect(() => {
         let sumTotalMinutes = 0;
         currentJobs.forEach(job => {
@@ -160,14 +157,14 @@ const App = () => {
 
         const finalNetMinutes = Math.max(0, currentNetMinutes);
 
-        // Save current day's data and calculated totals to weeklyData
+        // Update the weeklyData with the latest calculations and header info for the selected day
         setWeeklyData(prevWeeklyData => ({
             ...prevWeeklyData,
             [selectedDate]: {
                 ...prevWeeklyData[selectedDate], // Keep existing properties if any
-                employeeName: employeeName, // Save current employee name
-                truckNumber: truckNumber,   // Save current truck number
-                jobs: currentJobs,          // Save current jobs array
+                employeeName: employeeName, // Save current employee name from state
+                truckNumber: truckNumber,   // Save current truck number from state
+                jobs: currentJobs,          // Save current jobs array (derived state)
                 dayOfWeek: getDayOfWeek(selectedDate), // Always derive dayOfWeek for saving
                 totalHours: sumTotalMinutes,
                 netHours: finalNetMinutes
@@ -177,18 +174,19 @@ const App = () => {
     }, [currentJobs, calculateJobTotal, employeeName, truckNumber, selectedDate]);
 
 
-    // Handle input changes for main header fields
+    // Handle input changes for main header fields (Employee Name, Truck Number)
     const handleHeaderInputChange = (field, value) => {
         // Update the top-level state for employeeName/truckNumber
         if (field === 'employeeName') setEmployeeName(value);
         if (field === 'truckNumber') setTruckNumber(value);
 
         // Also, immediately update this in weeklyData for the current day
+        // This ensures the data is saved even if the user doesn't interact with jobs
         setWeeklyData(prevWeeklyData => ({
             ...prevWeeklyData,
             [selectedDate]: {
-                ...prevWeeklyData[selectedDate],
-                jobs: prevWeeklyData[selectedDate]?.jobs || Array(3).fill(null).map(() => createInitialJob()), // Ensure jobs array exists
+                ...prevWeeklyData[selectedDate], // Keep existing properties
+                jobs: prevWeeklyData[selectedDate]?.jobs || Array(3).fill(null).map(() => createInitialJob()), // Ensure jobs array exists if new day
                 dayOfWeek: getDayOfWeek(selectedDate),
                 [field]: value, // Update the specific field
             }
@@ -201,7 +199,7 @@ const App = () => {
             const dayData = prevWeeklyData[selectedDate] || {
                 employeeName: employeeName, // Use current employeeName from state
                 truckNumber: truckNumber,   // Use current truckNumber from state
-                jobs: Array(3).fill(null).map(() => createInitialJob()),
+                jobs: [],
                 dayOfWeek: getDayOfWeek(selectedDate),
                 totalHours: 0,
                 netHours: 0,
