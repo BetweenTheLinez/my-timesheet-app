@@ -275,7 +275,7 @@ const App = () => {
         
         **Instructions for AI:**
         - Format the output as a simple, easy-to-read text block or bulleted list.
-        - DO NOT use tables, markdown tables, or ASCII art for formatting.
+        - ABSOLUTELY NO TABLES, MARKDOWN TABLES, OR ASCII ART TABLES.
         - Focus on clarity and readability for an email.
 
 Employee Name: ${currentEmployeeName || 'N/A'}
@@ -360,7 +360,7 @@ Net Working Hours: ${formatDecimalHours(currentNetHours)} Hrs
         
         **Instructions for AI:**
         - Format the output as a simple, easy-to-read text block or bulleted list.
-        - DO NOT use tables, markdown tables, or ASCII art for formatting.
+        - ABSOLUTELY NO TABLES, MARKDOWN TABLES, OR ASCII ART TABLES.
         - Focus on clarity and readability for an email.
 
 Employee Name: ${currentEmployeeName || 'N/A'}
@@ -395,10 +395,10 @@ Week of: ${weeklyReportStartDate} to ${weeklyReportEndDate}
                         if (job.jobNumber || job.jobLocation || job.travelStartTime || job.workStartTime || job.workFinishTime || job.travelHomeTime) {
                             prompt += `    - Job Number: ${job.jobNumber || 'N/A'}\n`;
                             prompt += `      Location: ${job.jobLocation || 'N/A'}\n`;
-                            prompt += `      Travel Start: ${job.travelStartTime || 'N/A'}\n`; // Added
-                            prompt += `      Work Start: ${job.workStartTime || 'N/A'}\n`;     // Added
-                            prompt += `      Work Finish: ${job.workFinishTime || 'N/A'}\n`;   // Added
-                            prompt += `      Travel Home Arrival: ${job.travelHomeTime || 'N/A'}\n`; // Added
+                            prompt += `      Travel Start: ${job.travelStartTime || 'N/A'}\n`;
+                            prompt += `      Work Start: ${job.workStartTime || 'N/A'}\n`;
+                            prompt += `      Work Finish: ${job.workFinishTime || 'N/A'}\n`;
+                            prompt += `      Travel Home Arrival: ${job.travelHomeTime || 'N/A'}\n`;
                             prompt += `      Total for job: ${formatDecimalHours(job.totalTimeWorkedMinutes)} Hrs\n`;
                             prompt += `\n`; // Add a blank line for readability between jobs
                         }
@@ -749,4 +749,3 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
 };
 
 export default App;
-
