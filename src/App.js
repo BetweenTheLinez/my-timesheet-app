@@ -395,8 +395,10 @@ Week of: ${weeklyReportStartDate} to ${weeklyReportEndDate}
                         if (job.jobNumber || job.jobLocation || job.travelStartTime || job.workStartTime || job.workFinishTime || job.travelHomeTime) {
                             prompt += `    - Job Number: ${job.jobNumber || 'N/A'}\n`;
                             prompt += `      Location: ${job.jobLocation || 'N/A'}\n`;
-                            prompt += `      Worked: ${job.workStartTime || 'N/A'} - ${job.workFinishTime || 'N/A'}\n`;
-                            prompt += `      Travel Home Arrival: ${job.travelHomeTime || 'N/A'}\n`;
+                            prompt += `      Travel Start: ${job.travelStartTime || 'N/A'}\n`; // Added
+                            prompt += `      Work Start: ${job.workStartTime || 'N/A'}\n`;     // Added
+                            prompt += `      Work Finish: ${job.workFinishTime || 'N/A'}\n`;   // Added
+                            prompt += `      Travel Home Arrival: ${job.travelHomeTime || 'N/A'}\n`; // Added
                             prompt += `      Total for job: ${formatDecimalHours(job.totalTimeWorkedMinutes)} Hrs\n`;
                             prompt += `\n`; // Add a blank line for readability between jobs
                         }
@@ -747,3 +749,4 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
 };
 
 export default App;
+
