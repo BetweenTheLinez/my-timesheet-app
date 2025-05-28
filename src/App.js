@@ -24,7 +24,7 @@ const formatDecimalHours = (minutes) => {
 };
 
 // Initial structure for a single job entry
-const initialJob = {
+const createInitialJob = () => ({
     id: crypto.randomUUID(), // Unique ID for each job
     jobNumber: '',
     jobLocation: '',
@@ -33,7 +33,7 @@ const initialJob = {
     workFinishTime: '',
     travelHomeTime: '',
     totalTimeWorkedMinutes: 0,
-};
+});
 
 // Function to get today's date in YYYY-MM-DD format
 const getTodayDate = () => {
@@ -75,18 +75,16 @@ const getSundayOfCurrentWeek = () => {
 
 const App = () => {
     // State to store all weekly data, keyed by date (YYYY-MM-DD)
+    // Each day's data includes employeeName, truckNumber, jobs array, and calculated totals
     const [weeklyData, setWeeklyData] = useState({});
+    
     // State for the currently selected date (for daily input)
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
 
-    // States for the current day's data (derived from weeklyData[selectedDate])
+    // Header info (employeeName, truckNumber) now lives within weeklyData for each day
+    // We'll manage them as part of the current day's data for editing
     const [employeeName, setEmployeeName] = useState('');
     const [truckNumber, setTruckNumber] = useState('');
-    const [jobs, setJobs] = useState([]);
-    const [dayOfWeek, setDayOfWeek] = useState('');
-
-    const [totalHoursForCurrentDayMinutes, setTotalHoursForCurrentDayMinutes] = useState(0);
-    const [netWorkingHoursForCurrentDayMinutes, setNetWorkingHoursForCurrentDayMinutes] = useState(0);
 
     const [generatedDailyReport, setGeneratedDailyReport] = useState('');
     const [generatedWeeklyReport, setGeneratedWeeklyReport] = useState('');
@@ -99,40 +97,37 @@ const App = () => {
     // New state for recipient email
     const [recipientEmail, setRecipientEmail] = useState('');
 
+    // --- Derived state for current day's data ---
+    // Access the current day's data from weeklyData
+    const currentDayData = weeklyData[selectedDate] || {
+        employeeName: '',
+        truckNumber: '',
+        jobs: Array(3).fill(null).map(() => createInitialJob()),
+        dayOfWeek: getDayOfWeek(selectedDate),
+        totalHours: 0,
+        netHours: 0,
+    };
+    const currentJobs = currentDayData.jobs;
+    const currentDayOfWeek = currentDayData.dayOfWeek;
+    const currentTotalHours = currentDayData.totalHours;
+    const currentNetHours = currentDayData.netHours;
 
-    // EFFECT: Load data for selectedDate when it changes or weeklyData is updated externally
-    // THIS IS THE PRIMARY FIX FOR THE GLITCHING. Removed employeeName, truckNumber from deps.
+
+    // EFFECT: Initialize/Load data for selectedDate when it changes
     useEffect(() => {
-        const currentDayData = weeklyData[selectedDate] || {
-            employeeName: '',
-            truckNumber: '',
-            jobs: Array(3).fill(null).map(() => ({ ...initialJob, id: crypto.randomUUID() })),
-            dayOfWeek: getDayOfWeek(selectedDate),
-        };
-
-        // Only update employeeName/truckNumber if they are actually different
-        // or if they are currently blank and new data exists
-        if (currentDayData.employeeName && currentDayData.employeeName !== employeeName) {
-            setEmployeeName(currentDayData.employeeName);
-        } else if (!employeeName && weeklyData[selectedDate]?.employeeName) { // Fallback if currentName is blank but weeklyData has it
-            setEmployeeName(weeklyData[selectedDate].employeeName);
-        }
-
-        if (currentDayData.truckNumber && currentDayData.truckNumber !== truckNumber) {
-            setTruckNumber(currentDayData.truckNumber);
-        } else if (!truckNumber && weeklyData[selectedDate]?.truckNumber) { // Fallback if currentTruck is blank but weeklyData has it
-            setTruckNumber(weeklyData[selectedDate].truckNumber);
-        }
+        // When selectedDate changes, update the employeeName and truckNumber states
+        // to reflect what's stored for that specific day, or keep them blank if new day.
+        setEmployeeName(currentDayData.employeeName);
+        setTruckNumber(currentDayData.truckNumber);
         
-        setJobs(currentDayData.jobs);
-        setDayOfWeek(getDayOfWeek(selectedDate));
+        // Ensure dayOfWeek is correctly set based on selectedDate
+        // This is now derived directly from selectedDate, so no need for a separate state update here.
 
         // Clear reports when changing day
         setGeneratedDailyReport('');
         setGeneratedWeeklyReport('');
         setReportError('');
-    }, [selectedDate, weeklyData, employeeName, truckNumber]); // employeeName and truckNumber are now correctly in dependencies for this effect
-
+    }, [selectedDate, weeklyData]); // Depend on weeklyData to ensure updates are reflected
 
     // Calculate total time worked for a single job
     const calculateJobTotal = useCallback((job) => {
@@ -143,14 +138,13 @@ const App = () => {
     }, []);
 
     // EFFECT: Recalculate current day's totals and save to weeklyData
-    // Dependencies are now correct here.
+    // This effect now depends on currentJobs (derived from weeklyData) and header inputs
     useEffect(() => {
         let sumTotalMinutes = 0;
-        jobs.forEach(job => {
+        currentJobs.forEach(job => {
             const jobTotal = calculateJobTotal(job);
             sumTotalMinutes += jobTotal;
         });
-        setTotalHoursForCurrentDayMinutes(sumTotalMinutes);
 
         let currentNetMinutes = sumTotalMinutes;
 
@@ -164,56 +158,115 @@ const App = () => {
             currentNetMinutes -= 30; // Subtract 30 minutes
         }
 
-        setNetWorkingHoursForCurrentDayMinutes(Math.max(0, currentNetMinutes));
+        const finalNetMinutes = Math.max(0, currentNetMinutes);
 
-        // Save current day's data to weeklyData
+        // Save current day's data and calculated totals to weeklyData
         setWeeklyData(prevWeeklyData => ({
             ...prevWeeklyData,
             [selectedDate]: {
-                employeeName,
-                truckNumber,
-                jobs,
-                dayOfWeek: getDayOfWeek(selectedDate),
+                ...prevWeeklyData[selectedDate], // Keep existing properties if any
+                employeeName: employeeName, // Save current employee name
+                truckNumber: truckNumber,   // Save current truck number
+                jobs: currentJobs,          // Save current jobs array
+                dayOfWeek: getDayOfWeek(selectedDate), // Always derive dayOfWeek for saving
                 totalHours: sumTotalMinutes,
-                netHours: Math.max(0, currentNetMinutes)
+                netHours: finalNetMinutes
             }
         }));
 
-    }, [jobs, calculateJobTotal, employeeName, truckNumber, selectedDate]); // Added employeeName and truckNumber to dependencies
+    }, [currentJobs, calculateJobTotal, employeeName, truckNumber, selectedDate]);
 
 
     // Handle input changes for main header fields
     const handleHeaderInputChange = (field, value) => {
+        // Update the top-level state for employeeName/truckNumber
         if (field === 'employeeName') setEmployeeName(value);
         if (field === 'truckNumber') setTruckNumber(value);
+
+        // Also, immediately update this in weeklyData for the current day
+        setWeeklyData(prevWeeklyData => ({
+            ...prevWeeklyData,
+            [selectedDate]: {
+                ...prevWeeklyData[selectedDate],
+                jobs: prevWeeklyData[selectedDate]?.jobs || Array(3).fill(null).map(() => createInitialJob()), // Ensure jobs array exists
+                dayOfWeek: getDayOfWeek(selectedDate),
+                [field]: value, // Update the specific field
+            }
+        }));
     };
 
     // Handle input changes for job rows
     const handleJobInputChange = (jobId, field, value) => {
-        const updatedJobs = jobs.map(job => {
-            if (job.id === jobId) {
-                const newJob = { ...job, [field]: value };
-                newJob.totalTimeWorkedMinutes = calculateJobTotal(newJob);
-                return newJob;
-            }
-            return job;
+        setWeeklyData(prevWeeklyData => {
+            const dayData = prevWeeklyData[selectedDate] || {
+                employeeName: employeeName, // Use current employeeName from state
+                truckNumber: truckNumber,   // Use current truckNumber from state
+                jobs: Array(3).fill(null).map(() => createInitialJob()),
+                dayOfWeek: getDayOfWeek(selectedDate),
+                totalHours: 0,
+                netHours: 0,
+            };
+
+            const updatedJobs = dayData.jobs.map(job => {
+                if (job.id === jobId) {
+                    const newJob = { ...job, [field]: value };
+                    newJob.totalTimeWorkedMinutes = calculateJobTotal(newJob);
+                    return newJob;
+                }
+                return job;
+            });
+
+            return {
+                ...prevWeeklyData,
+                [selectedDate]: {
+                    ...dayData, // Keep existing day data
+                    jobs: updatedJobs, // Update jobs array
+                }
+            };
         });
-        setJobs(updatedJobs);
     };
 
     // Add a new job row for the current day
     const handleAddJob = () => {
-        if (jobs.length < 12) {
-            setJobs([...jobs, { ...initialJob, id: crypto.randomUUID() }]);
-        } else {
-            console.log("Maximum 12 jobs allowed per day.");
-        }
+        setWeeklyData(prevWeeklyData => {
+            const dayData = prevWeeklyData[selectedDate] || {
+                employeeName: employeeName,
+                truckNumber: truckNumber,
+                jobs: [],
+                dayOfWeek: getDayOfWeek(selectedDate),
+                totalHours: 0,
+                netHours: 0,
+            };
+
+            if (dayData.jobs.length < 12) {
+                const updatedJobs = [...dayData.jobs, createInitialJob()];
+                return {
+                    ...prevWeeklyData,
+                    [selectedDate]: {
+                        ...dayData,
+                        jobs: updatedJobs,
+                    }
+                };
+            } else {
+                console.log("Maximum 12 jobs allowed per day.");
+                return prevWeeklyData; // No change if max reached
+            }
+        });
     };
 
     // Remove a job row from the current day
     const handleRemoveJob = (jobId) => {
-        const updatedJobs = jobs.filter(job => job.id !== jobId);
-        setJobs(updatedJobs);
+        setWeeklyData(prevWeeklyData => {
+            const dayData = prevWeeklyData[selectedDate] || { jobs: [] };
+            const updatedJobs = dayData.jobs.filter(job => job.id !== jobId);
+            return {
+                ...prevWeeklyData,
+                [selectedDate]: {
+                    ...dayData,
+                    jobs: updatedJobs,
+                }
+            };
+        });
     };
 
     // Function to generate the daily report using Gemini API
@@ -227,14 +280,14 @@ const App = () => {
 Employee Name: ${employeeName || 'N/A'}
 Truck Number: ${truckNumber || 'N/A'}
 Date: ${selectedDate || 'N/A'}
-Day of Week: ${dayOfWeek || 'N/A'}
+Day of Week: ${currentDayOfWeek || 'N/A'}
 
 Job Details:
 `;
-        if (jobs.length === 0 || jobs.every(job => !job.jobNumber && !job.jobLocation && !job.travelStartTime && !job.workStartTime && !job.workFinishTime && !job.travelHomeTime)) {
+        if (currentJobs.length === 0 || currentJobs.every(job => !job.jobNumber && !job.jobLocation && !job.travelStartTime && !job.workStartTime && !job.workFinishTime && !job.travelHomeTime)) {
             prompt += "No job entries for this day.\n";
         } else {
-            jobs.forEach((job, index) => {
+            currentJobs.forEach((job, index) => {
                 if (job.jobNumber || job.jobLocation || job.travelStartTime || job.workStartTime || job.workFinishTime || job.travelHomeTime) {
                     prompt += `Job ${index + 1}:
   Job Number: ${job.jobNumber || 'N/A'}
@@ -249,9 +302,9 @@ Job Details:
         }
 
         prompt += `
-Summary for ${dayOfWeek}, ${selectedDate}:
-Total Hours for All Jobs: ${formatDecimalHours(totalHoursForCurrentDayMinutes)} Hrs
-Net Working Hours: ${formatDecimalHours(netWorkingHoursForCurrentDayMinutes)} Hrs
+Summary for ${currentDayOfWeek}, ${selectedDate}:
+Total Hours for All Jobs: ${formatDecimalHours(currentTotalHours)} Hrs
+Net Working Hours: ${formatDecimalHours(currentNetHours)} Hrs
 `;
 
         try {
@@ -435,7 +488,7 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
                             type="text"
                             id="dayOfWeek"
                             className="p-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
-                            value={dayOfWeek}
+                            value={currentDayOfWeek} // Use derived dayOfWeek
                             readOnly // Day of week is derived
                         />
                     </div>
@@ -458,7 +511,7 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {jobs.map((job, index) => (
+                            {currentJobs.map((job, index) => ( // Use currentJobs here
                                 <tr key={job.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
                                     <td className="px-4 py-3 whitespace-nowrap">
@@ -513,7 +566,7 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
                                         {formatDecimalHours(job.totalTimeWorkedMinutes)}
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap">
-                                        {jobs.length > 1 && (
+                                        {currentJobs.length > 1 && ( // Use currentJobs length
                                             <button
                                                 onClick={() => handleRemoveJob(job.id)}
                                                 className="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-2 rounded-md text-xs transition duration-200 ease-in-out transform hover:scale-105"
@@ -531,7 +584,7 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
                 <div className="flex justify-center mb-8">
                     <button
                         onClick={handleAddJob}
-                        disabled={jobs.length >= 12}
+                        disabled={currentJobs.length >= 12} // Use currentJobs length
                         className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Add Job Row for Current Day
@@ -540,15 +593,15 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
 
                 {/* Daily Summary Section */}
                 <div className="bg-blue-50 p-6 rounded-lg shadow-inner border border-blue-200 mb-8">
-                    <h2 className="text-xl font-bold text-blue-700 mb-4">Daily Summary for {dayOfWeek}, {selectedDate}</h2>
+                    <h2 className="text-xl font-bold text-blue-700 mb-4">Daily Summary for {currentDayOfWeek}, {selectedDate}</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-lg">
                         <div className="flex justify-between items-center bg-white p-3 rounded-md shadow-sm">
                             <span className="font-medium text-gray-700">Total Hours for All Jobs:</span>
-                            <span className="font-bold text-blue-800">{formatDecimalHours(totalHoursForCurrentDayMinutes)} Hrs</span>
+                            <span className="font-bold text-blue-800">{formatDecimalHours(currentTotalHours)} Hrs</span>
                         </div>
                         <div className="flex justify-between items-center bg-white p-3 rounded-md shadow-sm">
                             <span className="font-medium text-gray-700">Net Working Hours:</span>
-                            <span className="font-bold text-green-700">{formatDecimalHours(netWorkingHoursForCurrentDayMinutes)} Hrs</span>
+                            <span className="font-bold text-green-700">{formatDecimalHours(currentNetHours)} Hrs</span>
                         </div>
                     </div>
                     <p className="text-sm text-gray-600 mt-4">
