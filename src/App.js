@@ -131,7 +131,7 @@ const App = () => {
         setGeneratedDailyReport('');
         setGeneratedWeeklyReport('');
         setReportError('');
-    }, [selectedDate, weeklyData]);
+    }, [selectedDate, weeklyData, employeeName, truckNumber]); // employeeName and truckNumber are now correctly in dependencies for this effect
 
 
     // Calculate total time worked for a single job
@@ -143,7 +143,7 @@ const App = () => {
     }, []);
 
     // EFFECT: Recalculate current day's totals and save to weeklyData
-    // Dependencies are correct here.
+    // Dependencies are now correct here.
     useEffect(() => {
         let sumTotalMinutes = 0;
         jobs.forEach(job => {
@@ -179,7 +179,8 @@ const App = () => {
             }
         }));
 
-    }, [jobs, calculateJobTotal, employeeName, truckNumber, selectedDate]);
+    }, [jobs, calculateJobTotal, employeeName, truckNumber, selectedDate]); // Added employeeName and truckNumber to dependencies
+
 
     // Handle input changes for main header fields
     const handleHeaderInputChange = (field, value) => {
