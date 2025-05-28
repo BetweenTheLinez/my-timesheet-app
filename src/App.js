@@ -31,7 +31,7 @@ const createInitialJob = () => ({
     travelStartTime: '',
     workStartTime: '',
     workFinishTime: '',
-    travelHomeTime: '', // This will be renamed to travelHomeArrivalTime
+    travelHomeTime: '',
     totalTimeWorkedMinutes: 0,
 });
 
@@ -81,10 +81,10 @@ const App = () => {
     // State for the currently selected date (for daily input)
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
 
-    // Header info (employeeName, truckNumber) are now controlled by input and stored in weeklyData
-    // We'll manage them as part of the current day's data for editing
-    const [employeeName, setEmployeeName] = useState('');
-    const [truckNumber, setTruckNumber] = useState('');
+    // These are now derived from currentDayData for display, not separate states
+    // The actual values are stored within weeklyData[selectedDate]
+    // const [employeeName, setEmployeeName] = useState('');
+    // const [truckNumber, setTruckNumber] = useState('');
 
     const [generatedDailyReport, setGeneratedDailyReport] = useState('');
     const [generatedWeeklyReport, setGeneratedWeeklyReport] = useState('');
@@ -111,31 +111,21 @@ const App = () => {
     const currentDayOfWeek = currentDayData.dayOfWeek;
     const currentTotalHours = currentDayData.totalHours;
     const currentNetHours = currentDayData.netHours;
-
-
-    // EFFECT: Update top-level employeeName and truckNumber states when selectedDate changes
-    // This ensures the input fields reflect the data for the newly selected day.
-    useEffect(() => {
-        setEmployeeName(currentDayData.employeeName);
-        setTruckNumber(currentDayData.truckNumber);
-        
-        // Clear reports when changing day
-        setGeneratedDailyReport('');
-        setGeneratedWeeklyReport('');
-        setReportError('');
-    }, [selectedDate, currentDayData.employeeName, currentDayData.truckNumber]); // Depend on specific properties to avoid re-render loops
+    const currentEmployeeName = currentDayData.employeeName; // Derived for display
+    const currentTruckNumber = currentDayData.truckNumber;   // Derived for display
 
 
     // Calculate total time worked for a single job (memoized)
     const calculateJobTotal = useCallback((job) => {
         const travelToJobMinutes = calculateDurationInMinutes(job.travelStartTime, job.workStartTime);
         const workDurationMinutes = calculateDurationInMinutes(job.workStartTime, job.workFinishTime);
-        const travelFromJobMinutes = calculateDurationInMinutes(job.workFinishTime, job.travelHomeTime); // Use travelHomeTime
+        const travelFromJobMinutes = calculateDurationInMinutes(job.workFinishTime, job.travelHomeTime);
         return travelToJobMinutes + workDurationMinutes + travelFromJobMinutes;
     }, []);
 
     // EFFECT: Recalculate current day's totals and save to weeklyData
-    // This effect runs whenever currentJobs, employeeName, truckNumber, or selectedDate changes.
+    // This effect runs whenever currentJobs, or selectedDate changes.
+    // employeeName and truckNumber are now part of currentDayData, so they are implicitly tracked.
     useEffect(() => {
         let sumTotalMinutes = 0;
         currentJobs.forEach(job => {
@@ -157,38 +147,37 @@ const App = () => {
 
         const finalNetMinutes = Math.max(0, currentNetMinutes);
 
-        // Update the weeklyData with the latest calculations and header info for the selected day
+        // Update the weeklyData with the latest calculations for the selected day
         setWeeklyData(prevWeeklyData => ({
             ...prevWeeklyData,
             [selectedDate]: {
                 ...prevWeeklyData[selectedDate], // Keep existing properties if any
-                employeeName: employeeName, // Save current employee name from state
-                truckNumber: truckNumber,   // Save current truck number from state
-                jobs: currentJobs,          // Save current jobs array (derived state)
-                dayOfWeek: getDayOfWeek(selectedDate), // Always derive dayOfWeek for saving
+                employeeName: currentEmployeeName, // Use derived currentEmployeeName
+                truckNumber: currentTruckNumber,   // Use derived currentTruckNumber
+                jobs: currentJobs,                 // Use derived currentJobs
+                dayOfWeek: getDayOfWeek(selectedDate),
                 totalHours: sumTotalMinutes,
                 netHours: finalNetMinutes
             }
         }));
 
-    }, [currentJobs, calculateJobTotal, employeeName, truckNumber, selectedDate]);
+        // Clear reports when changing day (or when data for current day changes)
+        setGeneratedDailyReport('');
+        setGeneratedWeeklyReport('');
+        setReportError('');
+
+    }, [currentJobs, calculateJobTotal, selectedDate, currentEmployeeName, currentTruckNumber]); // Dependencies adjusted
 
 
     // Handle input changes for main header fields (Employee Name, Truck Number)
     const handleHeaderInputChange = (field, value) => {
-        // Update the top-level state for employeeName/truckNumber
-        if (field === 'employeeName') setEmployeeName(value);
-        if (field === 'truckNumber') setTruckNumber(value);
-
-        // Also, immediately update this in weeklyData for the current day
-        // This ensures the data is saved even if the user doesn't interact with jobs
         setWeeklyData(prevWeeklyData => ({
             ...prevWeeklyData,
             [selectedDate]: {
                 ...prevWeeklyData[selectedDate], // Keep existing properties
                 jobs: prevWeeklyData[selectedDate]?.jobs || Array(3).fill(null).map(() => createInitialJob()), // Ensure jobs array exists if new day
                 dayOfWeek: getDayOfWeek(selectedDate),
-                [field]: value, // Update the specific field
+                [field]: value, // Update the specific field directly in weeklyData
             }
         }));
     };
@@ -197,8 +186,8 @@ const App = () => {
     const handleJobInputChange = (jobId, field, value) => {
         setWeeklyData(prevWeeklyData => {
             const dayData = prevWeeklyData[selectedDate] || {
-                employeeName: employeeName, // Use current employeeName from state
-                truckNumber: truckNumber,   // Use current truckNumber from state
+                employeeName: currentEmployeeName, // Use derived currentEmployeeName
+                truckNumber: currentTruckNumber,   // Use derived currentTruckNumber
                 jobs: [],
                 dayOfWeek: getDayOfWeek(selectedDate),
                 totalHours: 0,
@@ -228,8 +217,8 @@ const App = () => {
     const handleAddJob = () => {
         setWeeklyData(prevWeeklyData => {
             const dayData = prevWeeklyData[selectedDate] || {
-                employeeName: employeeName,
-                truckNumber: truckNumber,
+                employeeName: currentEmployeeName,
+                truckNumber: currentTruckNumber,
                 jobs: [],
                 dayOfWeek: getDayOfWeek(selectedDate),
                 totalHours: 0,
@@ -274,8 +263,7 @@ const App = () => {
         setReportError('');
 
         // IMPORTANT: Replace "" with your actual Gemini API Key from Google AI Studio
-        // Example: const apiKey = "AIzaSyC_YOUR_ACTUAL_KEY_HERE";
-        const apiKey = ""; 
+        const apiKey = "AIzaSyDhV319hIAYhrBAsDaMLMnCO5RlBA0ml3U"; 
         if (!apiKey) {
             setReportError("API Key is not configured. Please add your API key to src/App.js.");
             setIsGeneratingReport(false);
@@ -285,8 +273,8 @@ const App = () => {
 
         let prompt = `Generate a concise daily timesheet summary based on the following information. Focus on the jobs completed, total hours, and net working hours. Make it sound like a brief report for a supervisor.
 
-Employee Name: ${employeeName || 'N/A'}
-Truck Number: ${truckNumber || 'N/A'}
+Employee Name: ${currentEmployeeName || 'N/A'}
+Truck Number: ${currentTruckNumber || 'N/A'}
 Date: ${selectedDate || 'N/A'}
 Day of Week: ${currentDayOfWeek || 'N/A'}
 
@@ -350,8 +338,8 @@ Net Working Hours: ${formatDecimalHours(currentNetHours)} Hrs
         setGeneratedWeeklyReport('');
         setReportError('');
 
-        // Ensure API key is available
-        const apiKey = ""; // Canvas will inject the API key here
+        // IMPORTANT: Replace "" with your actual Gemini API Key from Google AI Studio
+        const apiKey = "AIzaSyDhV319hIAYhrBAsDaMLMnCO5RlBA0ml3U"; 
         if (!apiKey) {
             setReportError("API Key is not configured. Please add your API key to src/App.js.");
             setIsGeneratingReport(false);
@@ -361,8 +349,8 @@ Net Working Hours: ${formatDecimalHours(currentNetHours)} Hrs
 
         let prompt = `Generate a comprehensive weekly timesheet summary for payroll based on the following daily information.
 
-Employee Name: ${employeeName || 'N/A'}
-Truck Number: ${truckNumber || 'N/A'}
+Employee Name: ${currentEmployeeName || 'N/A'}
+Truck Number: ${currentTruckNumber || 'N/A'}
 Week of: ${weeklyReportStartDate} to ${weeklyReportEndDate}
 
 --- Daily Breakdown ---
@@ -451,7 +439,7 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
             return;
         }
 
-        const subject = encodeURIComponent(`Weekly Timesheet Report - ${employeeName || 'N/A'} - Week of ${weeklyReportStartDate} to ${weeklyReportEndDate}`);
+        const subject = encodeURIComponent(`Weekly Timesheet Report - ${currentEmployeeName || 'N/A'} - Week of ${weeklyReportStartDate} to ${weeklyReportEndDate}`);
         const body = encodeURIComponent(generatedWeeklyReport);
 
         const mailtoLink = `mailto:${recipientEmail}?subject=${subject}&body=${body}`;
@@ -476,7 +464,7 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
                             type="text"
                             id="employeeName"
                             className="p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                            value={employeeName}
+                            value={currentEmployeeName} // Use derived value
                             onChange={(e) => handleHeaderInputChange('employeeName', e.target.value)}
                             placeholder="John Doe"
                         />
@@ -487,7 +475,7 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
                             type="text"
                             id="truckNumber"
                             className="p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                            value={truckNumber}
+                            value={currentTruckNumber} // Use derived value
                             onChange={(e) => handleHeaderInputChange('truckNumber', e.target.value)}
                             placeholder="TRK-123"
                         />
