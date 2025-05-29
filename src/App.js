@@ -35,7 +35,7 @@ const createInitialJob = () => ({
     totalTimeWorkedMinutes: 0,
 });
 
-// Function to get today's date in Walpole-MM-DD format
+// Function to get today's date in YYYY-MM-DD format
 const getTodayDate = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
@@ -60,7 +60,7 @@ const getMondayOfCurrentWeek = () => {
     const day = d.getDay(); // Sunday - 0, Monday - 1, ..., Saturday - 6
     const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust if Sunday
     d.setDate(diff);
-    return d.toISOString().split('T')[0];
+    return d.toISOString().split('T')[0]; // FIX: Removed extra .toISOString()
 };
 
 // Function to get Sunday of the current week (for initial weekly report end date)
@@ -69,7 +69,7 @@ const getSundayOfCurrentWeek = () => {
     const day = d.getDay(); // Sunday - 0, Monday - 1, ..., Saturday - 6
     const diff = d.getDate() - day + 7; // Adjust if Sunday
     d.setDate(diff);
-    return d.toISOString().toISOString().split('T')[0];
+    return d.toISOString().split('T')[0]; // FIX: Removed extra .toISOString()
 };
 
 
@@ -81,10 +81,10 @@ const App = () => {
     // State for the currently selected date (for daily input)
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
 
-    // These are now derived from currentDayData for display, not separate states
-    // The actual values are stored within weeklyData[selectedDate]
-    // const [employeeName, setEmployeeName] = useState('');
-    // const [truckNumber, setTruckNumber] = useState('');
+    // Header info (employeeName, truckNumber) are now controlled by input and stored in weeklyData
+    // We'll manage them as part of the current day's data for editing
+    // const [employeeName, setEmployeeName] = useState(''); // These are derived from weeklyData now
+    // const [truckNumber, setTruckNumber] = useState('');   // These are derived from weeklyData now
 
     const [generatedDailyReport, setGeneratedDailyReport] = useState('');
     const [generatedWeeklyReport, setGeneratedWeeklyReport] = useState('');
@@ -106,7 +106,7 @@ const App = () => {
         dayOfWeek: getDayOfWeek(selectedDate),
         totalHours: 0,
         netHours: 0,
-        isOnCall: false, // NEW: Default to not on-call
+        isOnCall: false, // Default to not on-call
     };
     const currentJobs = currentDayData.jobs;
     const currentDayOfWeek = currentDayData.dayOfWeek;
@@ -115,6 +115,21 @@ const App = () => {
     const currentEmployeeName = currentDayData.employeeName; // Derived for display
     const currentTruckNumber = currentDayData.truckNumber;   // Derived for display
     const currentIsOnCall = currentDayData.isOnCall;         // Derived for display
+
+
+    // EFFECT: Update top-level employeeName and truckNumber states when selectedDate changes
+    // This ensures the input fields reflect the data for the newly selected day.
+    useEffect(() => {
+        // Set employeeName and truckNumber states based on the data for the newly selected date
+        // If no data exists for the new date, they'll become empty strings.
+        setEmployeeName(currentDayData.employeeName);
+        setTruckNumber(currentDayData.truckNumber);
+        
+        // Clear reports when changing day
+        setGeneratedDailyReport('');
+        setGeneratedWeeklyReport('');
+        setReportError('');
+    }, [selectedDate, currentDayData.employeeName, currentDayData.truckNumber]);
 
 
     // Calculate total time worked for a single job (memoized)
@@ -137,7 +152,7 @@ const App = () => {
         let currentNetMinutes = sumTotalMinutes;
 
         // Deduct 1 hour travel if workday > 6 hours AND NOT on-call
-        if (sumTotalMinutes / 60 > 6 && !currentIsOnCall) { // NEW: Add !currentIsOnCall condition
+        if (sumTotalMinutes / 60 > 6 && !currentIsOnCall) { 
             currentNetMinutes -= 60; // Subtract 60 minutes
         }
 
@@ -148,7 +163,7 @@ const App = () => {
 
         const finalNetMinutes = Math.max(0, currentNetMinutes);
 
-        // Update the weeklyData with the latest calculations for the selected day
+        // Update the weeklyData with the latest calculations and header info for the selected day
         setWeeklyData(prevWeeklyData => ({
             ...prevWeeklyData,
             [selectedDate]: {
@@ -159,7 +174,7 @@ const App = () => {
                 dayOfWeek: getDayOfWeek(selectedDate),
                 totalHours: sumTotalMinutes,
                 netHours: finalNetMinutes,
-                isOnCall: currentIsOnCall, // NEW: Save isOnCall status
+                isOnCall: currentIsOnCall, // Save isOnCall status
             }
         }));
 
@@ -168,7 +183,7 @@ const App = () => {
         setGeneratedWeeklyReport('');
         setReportError('');
 
-    }, [currentJobs, calculateJobTotal, selectedDate, currentEmployeeName, currentTruckNumber, currentIsOnCall]); // Dependencies adjusted
+    }, [currentJobs, calculateJobTotal, selectedDate, currentEmployeeName, currentTruckNumber, currentIsOnCall]);
 
 
     // Handle input changes for main header fields (Employee Name, Truck Number, On-Call)
@@ -188,8 +203,8 @@ const App = () => {
     const handleJobInputChange = (jobId, field, value) => {
         setWeeklyData(prevWeeklyData => {
             const dayData = prevWeeklyData[selectedDate] || {
-                employeeName: currentEmployeeName,
-                truckNumber: currentTruckNumber,
+                employeeName: currentEmployeeName, // Use derived currentEmployeeName
+                truckNumber: currentTruckNumber,   // Use derived currentTruckNumber
                 jobs: [],
                 dayOfWeek: getDayOfWeek(selectedDate),
                 totalHours: 0,
@@ -293,7 +308,7 @@ Job Details:
         if (currentJobs.length === 0 || currentJobs.every(job => !job.jobNumber && !job.jobLocation && !job.travelStartTime && !job.workStartTime && !job.workFinishTime && !job.travelHomeTime)) {
             prompt += "No job entries for this day.\n";
         } else {
-            prompt += "Jobs for today:\n"; // Added clarifying heading
+            prompt += "Jobs for today:\n"; 
             currentJobs.forEach((job, index) => {
                 if (job.jobNumber || job.jobLocation || job.travelStartTime || job.workStartTime || job.workFinishTime || job.travelHomeTime) {
                     prompt += `- Job Number: ${job.jobNumber || 'N/A'}\n`;
@@ -303,7 +318,7 @@ Job Details:
                     prompt += `  Work Finish: ${job.workFinishTime || 'N/A'}\n`;
                     prompt += `  Travel Home Arrival: ${job.travelHomeTime || 'N/A'}\n`;
                     prompt += `  Total Time for Job: ${formatDecimalHours(job.totalTimeWorkedMinutes)} Hrs\n`;
-                    prompt += `\n`; // Add a blank line for readability between jobs
+                    prompt += `\n`; 
                 }
             });
         }
@@ -393,7 +408,7 @@ Week of: ${weeklyReportStartDate} to ${weeklyReportEndDate}
                 prompt += `\n${dayOfWeekForReport}, ${date}:\n`;
                 prompt += `  Total Hours: ${formatDecimalHours(dayData.totalHours || 0)} Hrs\n`;
                 prompt += `  Net Working Hours: ${formatDecimalHours(dayData.netHours || 0)} Hrs\n`;
-                prompt += `  On-Call Day: ${dayData.isOnCall ? 'Yes' : 'No'}\n`; // NEW: On-Call status in report
+                prompt += `  On-Call Day: ${dayData.isOnCall ? 'Yes' : 'No'}\n`;
                 
                 if (!dayData || dayData.jobs.length === 0 || dayData.jobs.every(job => !job.jobNumber && !job.jobLocation && !job.travelStartTime && !job.workStartTime && !job.workFinishTime && !job.travelHomeTime)) {
                     prompt += "  Jobs: No job entries recorded.\n";
@@ -423,7 +438,7 @@ Total Hours for the Week: ${formatDecimalHours(totalWeeklyHours)} Hrs
 Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)} Hrs
 
 Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour travel time deduction is NOT applied to the Net Working Hours calculation.
-`; // NEW: Explanation for on-call deduction
+`; 
 
         try {
             let chatHistory = [];
