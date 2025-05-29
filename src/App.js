@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-// jsPDF and html2canvas are loaded via CDN in public/index.html
 
 // Helper function to convert time string (HH:MM) to minutes from midnight
 const timeToMinutes = (timeString) => {
@@ -36,7 +35,7 @@ const createInitialJob = () => ({
     totalTimeWorkedMinutes: 0,
 });
 
-// Function to get today's date in YYYY-MM-DD format
+// Function to get today's date in Walpole-MM-DD format
 const getTodayDate = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
@@ -76,10 +75,16 @@ const getSundayOfCurrentWeek = () => {
 
 const App = () => {
     // State to store all weekly data, keyed by date (YYYY-MM-DD)
+    // Each day's data includes employeeName, truckNumber, jobs array, and calculated totals
     const [weeklyData, setWeeklyData] = useState({});
     
     // State for the currently selected date (for daily input)
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
+
+    // employeeName and truckNumber are now derived directly from currentDayData.
+    // They are not separate top-level useState variables anymore.
+    // const [employeeName, setEmployeeName] = useState(''); // REMOVED
+    // const [truckNumber, setTruckNumber] = useState('');   // REMOVED
 
     const [generatedDailyReport, setGeneratedDailyReport] = useState('');
     const [generatedWeeklyReport, setGeneratedWeeklyReport] = useState('');
@@ -93,33 +98,24 @@ const App = () => {
     const [recipientEmail, setRecipientEmail] = useState('');
 
     // --- Derived state for current day's data ---
+    // This object ensures we always work with the latest data for the selected day.
+    // currentEmployeeName, currentTruckNumber are now part of this derived object.
     const currentDayData = weeklyData[selectedDate] || {
         employeeName: '',
         truckNumber: '',
-        jobs: Array(3).fill(null).map(() => createInitialJob()),
+        jobs: Array(3).fill(null).map(() => createInitialJob()), // Default 3 empty jobs
         dayOfWeek: getDayOfWeek(selectedDate),
         totalHours: 0,
         netHours: 0,
-        isOnCall: false,
+        isOnCall: false, // Default to not on-call
     };
     const currentJobs = currentDayData.jobs;
     const currentDayOfWeek = currentDayData.dayOfWeek;
     const currentTotalHours = currentDayData.totalHours;
     const currentNetHours = currentDayData.netHours;
-    const currentEmployeeName = currentDayData.employeeName;
-    const currentTruckNumber = currentDayData.truckNumber;
-    const currentIsOnCall = currentDayData.isOnCall;
-
-
-    // EFFECT: Update top-level employeeName and truckNumber states when selectedDate changes
-    useEffect(() => {
-        setEmployeeName(currentDayData.employeeName);
-        setTruckNumber(currentDayData.truckNumber);
-        
-        setGeneratedDailyReport('');
-        setGeneratedWeeklyReport('');
-        setReportError('');
-    }, [selectedDate, currentDayData.employeeName, currentDayData.truckNumber]);
+    const currentEmployeeName = currentDayData.employeeName; // Derived for display
+    const currentTruckNumber = currentDayData.truckNumber;   // Derived for display
+    const currentIsOnCall = currentDayData.isOnCall;         // Derived for display
 
 
     // Calculate total time worked for a single job (memoized)
@@ -131,6 +127,8 @@ const App = () => {
     }, []);
 
     // EFFECT: Recalculate current day's totals and save to weeklyData
+    // This effect runs whenever currentJobs, or selectedDate changes.
+    // It now correctly uses derived states (currentEmployeeName, currentTruckNumber)
     useEffect(() => {
         let sumTotalMinutes = 0;
         currentJobs.forEach(job => {
@@ -142,12 +140,12 @@ const App = () => {
 
         // Deduct 1 hour travel if workday > 6 hours AND NOT on-call
         if (sumTotalMinutes / 60 > 6 && !currentIsOnCall) { 
-            currentNetMinutes -= 60;
+            currentNetMinutes -= 60; // Subtract 60 minutes
         }
 
         // Deduct 30 minutes lunch if workday > 4 hours
         if (sumTotalMinutes / 60 > 4) {
-            currentNetMinutes -= 30;
+            currentNetMinutes -= 30; // Subtract 30 minutes
         }
 
         const finalNetMinutes = Math.max(0, currentNetMinutes);
@@ -156,17 +154,18 @@ const App = () => {
         setWeeklyData(prevWeeklyData => ({
             ...prevWeeklyData,
             [selectedDate]: {
-                ...prevWeeklyData[selectedDate],
-                employeeName: currentEmployeeName,
-                truckNumber: currentTruckNumber,
-                jobs: currentJobs,
+                ...prevWeeklyData[selectedDate], // Keep existing properties if any
+                employeeName: currentEmployeeName, // Use derived currentEmployeeName
+                truckNumber: currentTruckNumber,   // Use derived currentTruckNumber
+                jobs: currentJobs,                 // Use derived currentJobs
                 dayOfWeek: getDayOfWeek(selectedDate),
                 totalHours: sumTotalMinutes,
                 netHours: finalNetMinutes,
-                isOnCall: currentIsOnCall,
+                isOnCall: currentIsOnCall, // Save isOnCall status
             }
         }));
 
+        // Clear reports when changing day (or when data for current day changes)
         setGeneratedDailyReport('');
         setGeneratedWeeklyReport('');
         setReportError('');
@@ -175,14 +174,15 @@ const App = () => {
 
 
     // Handle input changes for main header fields (Employee Name, Truck Number, On-Call)
+    // These directly update weeklyData, acting as the single source of truth.
     const handleHeaderInputChange = (field, value) => {
         setWeeklyData(prevWeeklyData => ({
             ...prevWeeklyData,
             [selectedDate]: {
-                ...prevWeeklyData[selectedDate],
-                jobs: prevWeeklyData[selectedDate]?.jobs || Array(3).fill(null).map(() => createInitialJob()),
+                ...prevWeeklyData[selectedDate], // Keep existing properties
+                jobs: prevWeeklyData[selectedDate]?.jobs || Array(3).fill(null).map(() => createInitialJob()), // Ensure jobs array exists if new day
                 dayOfWeek: getDayOfWeek(selectedDate),
-                [field]: value,
+                [field]: value, // Update the specific field directly in weeklyData
             }
         }));
     };
@@ -191,13 +191,13 @@ const App = () => {
     const handleJobInputChange = (jobId, field, value) => {
         setWeeklyData(prevWeeklyData => {
             const dayData = prevWeeklyData[selectedDate] || {
-                employeeName: currentEmployeeName,
-                truckNumber: currentTruckNumber,
+                employeeName: currentEmployeeName, // Use derived currentEmployeeName
+                truckNumber: currentTruckNumber,   // Use derived currentTruckNumber
                 jobs: [],
                 dayOfWeek: getDayOfWeek(selectedDate),
                 totalHours: 0,
                 netHours: 0,
-                isOnCall: false,
+                isOnCall: false, // Ensure this is initialized if new day
             };
 
             const updatedJobs = dayData.jobs.map(job => {
@@ -212,8 +212,8 @@ const App = () => {
             return {
                 ...prevWeeklyData,
                 [selectedDate]: {
-                    ...dayData,
-                    jobs: updatedJobs,
+                    ...dayData, // Keep existing day data
+                    jobs: updatedJobs, // Update jobs array
                 }
             };
         });
@@ -229,7 +229,7 @@ const App = () => {
                 dayOfWeek: getDayOfWeek(selectedDate),
                 totalHours: 0,
                 netHours: 0,
-                isOnCall: false,
+                isOnCall: false, // Ensure this is initialized if new day
             };
 
             if (dayData.jobs.length < 12) {
@@ -243,7 +243,7 @@ const App = () => {
                 };
             } else {
                 console.log("Maximum 12 jobs allowed per day.");
-                return prevWeeklyData;
+                return prevWeeklyData; // No change if max reached
             }
         });
     };
@@ -492,15 +492,17 @@ Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour trav
         const doc = new window.jsPDF('p', 'pt', 'letter'); // 'p' for portrait, 'pt' for points, 'letter' size
         const margin = 20;
         let y = margin;
+        const lineHeight = 14;
+        const indent = 20;
 
         doc.setFontSize(16);
         doc.text(`Timesheet for Pro-Air Mechanical`, margin, y);
         y += 20;
         doc.setFontSize(12);
         doc.text(`Employee Name: ${currentEmployeeName || 'N/A'}`, margin, y);
-        y += 15;
+        y += lineHeight;
         doc.text(`Truck Number: ${currentTruckNumber || 'N/A'}`, margin, y);
-        y += 15;
+        y += lineHeight;
         doc.text(`Week of: ${weeklyReportStartDate} to ${weeklyReportEndDate}`, margin, y);
         y += 25;
 
@@ -515,50 +517,60 @@ Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour trav
         if (datesToReport.length === 0) {
             doc.setFontSize(12);
             doc.text(`No timesheet data entered for the selected week.`, margin, y);
-            y += 15;
+            y += lineHeight;
         } else {
             datesToReport.forEach(date => {
                 const dayData = weeklyData[date];
                 const dayOfWeekForReport = getDayOfWeek(date);
 
-                if (y + 100 > doc.internal.pageSize.height - margin) { // Check if new page is needed
+                // Add new page if content overflows
+                if (y + (dayData.jobs.length * 7 * lineHeight) + 80 > doc.internal.pageSize.height - margin) {
                     doc.addPage();
                     y = margin;
                 }
 
                 doc.setFontSize(12);
                 doc.text(`${dayOfWeekForReport}, ${date}:`, margin, y);
-                y += 15;
-                doc.text(`  Total Hours: ${formatDecimalHours(dayData.totalHours || 0)} Hrs`, margin, y);
-                y += 15;
-                doc.text(`  Net Working Hours: ${formatDecimalHours(dayData.netHours || 0)} Hrs`, margin, y);
-                y += 15;
-                doc.text(`  On-Call Day: ${dayData.isOnCall ? 'Yes' : 'No'}`, margin, y);
-                y += 15;
+                y += lineHeight;
+                doc.text(`  Total Hours: ${formatDecimalHours(dayData.totalHours || 0)} Hrs`, margin + indent, y);
+                y += lineHeight;
+                doc.text(`  Net Working Hours: ${formatDecimalHours(dayData.netHours || 0)} Hrs`, margin + indent, y);
+                y += lineHeight;
+                doc.text(`  On-Call Day: ${dayData.isOnCall ? 'Yes' : 'No'}`, margin + indent, y);
+                y += lineHeight;
                 
                 if (!dayData || dayData.jobs.length === 0 || dayData.jobs.every(job => !job.jobNumber && !job.jobLocation && !job.travelStartTime && !job.workStartTime && !job.workFinishTime && !job.travelHomeTime)) {
-                    doc.text("  Jobs: No job entries recorded.", margin, y);
-                    y += 15;
+                    doc.text("  Jobs: No job entries recorded.", margin + indent, y);
+                    y += lineHeight;
                 } else {
-                    doc.text("  Jobs:", margin, y);
-                    y += 15;
+                    doc.text("  Jobs:", margin + indent, y);
+                    y += lineHeight;
                     dayData.jobs.forEach((job, index) => {
-                        if (job.jobNumber || job.jobLocation || job.travelStartTime || job.workStartTime || job.workFinishTime || job.travelHomeTime) {
-                            doc.text(`    - Job Number: ${job.jobNumber || 'N/A'}`, margin + 10, y);
-                            y += 15;
-                            doc.text(`      Location: ${job.jobLocation || 'N/A'}`, margin + 20, y);
-                            y += 15;
-                            doc.text(`      Travel Start: ${job.travelStartTime || 'N/A'}`, margin + 20, y);
-                            y += 15;
-                            doc.text(`      Work Start: ${job.workStartTime || 'N/A'}`, margin + 20, y);
-                            y += 15;
-                            doc.text(`      Work Finish: ${job.workFinishTime || 'N/A'}`, margin + 20, y);
-                            y += 15;
-                            doc.text(`      Travel Home Arrival: ${job.travelHomeTime || 'N/A'}`, margin + 20, y);
-                            y += 15;
-                            doc.text(`      Total for job: ${formatDecimalHours(job.totalTimeWorkedMinutes)} Hrs`, margin + 20, y);
-                            y += 20; // Extra space after each job
+                        // Check for page break before each job detail
+                        if (y + 7 * lineHeight > doc.internal.pageSize.height - margin) {
+                            doc.addPage();
+                            y = margin;
+                            doc.setFontSize(12);
+                            doc.text(`${dayOfWeekForReport}, ${date} (Cont.):`, margin, y);
+                            y += lineHeight;
+                            doc.text(`  Jobs (Cont.):`, margin + indent, y);
+                            y += lineHeight;
                         }
+
+                        doc.text(`    - Job Number: ${job.jobNumber || 'N/A'}`, margin + indent * 2, y);
+                        y += lineHeight;
+                        doc.text(`      Location: ${job.jobLocation || 'N/A'}`, margin + indent * 3, y);
+                        y += lineHeight;
+                        doc.text(`      Travel Start: ${job.travelStartTime || 'N/A'}`, margin + indent * 3, y);
+                        y += lineHeight;
+                        doc.text(`      Work Start: ${job.workStartTime || 'N/A'}`, margin + indent * 3, y);
+                        y += lineHeight;
+                        doc.text(`      Work Finish: ${job.workFinishTime || 'N/A'}`, margin + indent * 3, y);
+                        y += lineHeight;
+                        doc.text(`      Travel Home Arrival: ${job.travelHomeTime || 'N/A'}`, margin + indent * 3, y);
+                        y += lineHeight;
+                        doc.text(`      Total for job: ${formatDecimalHours(job.totalTimeWorkedMinutes)} Hrs`, margin + indent * 3, y);
+                        y += lineHeight * 1.5; // Extra space after each job
                     });
                 }
                 y += 10; // Space after each day
@@ -581,7 +593,7 @@ Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour trav
         });
         doc.setFontSize(12);
         doc.text(`Total Hours for the Week: ${formatDecimalHours(totalWeeklyHours)} Hrs`, margin, y);
-        y += 15;
+        y += lineHeight;
         doc.text(`Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)} Hrs`, margin, y);
         y += 20;
         doc.text(`Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour travel time deduction is NOT applied to the Net Working Hours calculation.`, margin, y, { maxWidth: doc.internal.pageSize.width - 2 * margin });
@@ -613,7 +625,7 @@ Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour trav
                 const dayOfWeekForReport = getDayOfWeek(date);
 
                 if (!dayData || dayData.jobs.length === 0 || dayData.jobs.every(job => !job.jobNumber && !job.jobLocation && !job.travelStartTime && !job.workStartTime && !job.workFinishTime && !job.travelHomeTime)) {
-                    csvContent += `${dayOfWeekForReport},${date},${formatDecimalHours(dayData.totalHours || 0)},${formatDecimalHours(dayData.netHours || 0)},${dayData.isOnCall ? 'Yes' : 'No'},,,,,,,\n`;
+                    csvContent += `${dayOfWeekForReport},${date},${formatDecimalHours(dayData.totalHours || 0)},${formatDecimalHours(dayData.netHours || 0)},${dayData.isOnCall ? 'Yes' : 'No'},,,,,,\n`;
                 } else {
                     dayData.jobs.forEach((job, index) => {
                         const isFirstJobOfDay = index === 0;
@@ -670,7 +682,7 @@ Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour trav
                             type="text"
                             id="employeeName"
                             className="p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                            value={currentEmployeeName}
+                            value={currentEmployeeName} // Use derived value
                             onChange={(e) => handleHeaderInputChange('employeeName', e.target.value)}
                             placeholder="John Doe"
                         />
@@ -681,7 +693,7 @@ Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour trav
                             type="text"
                             id="truckNumber"
                             className="p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                            value={currentTruckNumber}
+                            value={currentTruckNumber} // Use derived value
                             onChange={(e) => handleHeaderInputChange('truckNumber', e.target.value)}
                             placeholder="TRK-123"
                         />
@@ -702,10 +714,11 @@ Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour trav
                             type="text"
                             id="dayOfWeek"
                             className="p-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
-                            value={currentDayOfWeek}
-                            readOnly
+                            value={currentDayOfWeek} // Use derived dayOfWeek
+                            readOnly // Day of week is derived
                         />
                     </div>
+                    {/* NEW: On-Call Checkbox */}
                     <div className="flex flex-col col-span-full sm:col-span-2 lg:col-span-1 items-start sm:items-center">
                         <input
                             type="checkbox"
@@ -729,13 +742,13 @@ Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour trav
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Travel Start</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Work Start</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Work Finish</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Travel Home Arrival</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Travel Home Arrival</th> {/* Updated label */}
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Time Worked (Hrs)</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {currentJobs.map((job, index) => (
+                            {currentJobs.map((job, index) => ( // Use currentJobs here
                                 <tr key={job.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
                                     <td className="px-4 py-3 whitespace-nowrap">
@@ -944,13 +957,13 @@ Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour trav
                     {/* NEW: PDF and CSV Download Buttons */}
                     <div className="mt-6 pt-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-center gap-3">
                         <button
-                            onClick={generatePdfReport} // Removed arrow function to directly call
+                            onClick={generatePdfReport}
                             className="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200 ease-in-out transform hover:scale-105 flex items-center justify-center text-sm w-full sm:w-auto"
                         >
                             ⬇️ Download as PDF
                         </button>
                         <button
-                            onClick={generateCsvReport} // Removed arrow function to directly call
+                            onClick={generateCsvReport}
                             className="bg-green-700 hover:bg-green-800 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200 ease-in-out transform hover:scale-105 flex items-center justify-center text-sm w-full sm:w-auto"
                         >
                             ⬇️ Download as CSV
