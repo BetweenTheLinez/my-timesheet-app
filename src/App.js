@@ -69,7 +69,7 @@ const getSundayOfCurrentWeek = () => {
     const day = d.getDay(); // Sunday - 0, Monday - 1, ..., Saturday - 6
     const diff = d.getDate() - day + 7; // Adjust if Sunday
     d.setDate(diff);
-    return d.toISOString().split('T')[0];
+    return d.toISOString().toISOString().split('T')[0];
 };
 
 
@@ -106,6 +106,7 @@ const App = () => {
         dayOfWeek: getDayOfWeek(selectedDate),
         totalHours: 0,
         netHours: 0,
+        isOnCall: false, // NEW: Default to not on-call
     };
     const currentJobs = currentDayData.jobs;
     const currentDayOfWeek = currentDayData.dayOfWeek;
@@ -113,6 +114,7 @@ const App = () => {
     const currentNetHours = currentDayData.netHours;
     const currentEmployeeName = currentDayData.employeeName; // Derived for display
     const currentTruckNumber = currentDayData.truckNumber;   // Derived for display
+    const currentIsOnCall = currentDayData.isOnCall;         // Derived for display
 
 
     // Calculate total time worked for a single job (memoized)
@@ -125,7 +127,6 @@ const App = () => {
 
     // EFFECT: Recalculate current day's totals and save to weeklyData
     // This effect runs whenever currentJobs, or selectedDate changes.
-    // employeeName and truckNumber are now part of currentDayData, so they are implicitly tracked.
     useEffect(() => {
         let sumTotalMinutes = 0;
         currentJobs.forEach(job => {
@@ -135,8 +136,8 @@ const App = () => {
 
         let currentNetMinutes = sumTotalMinutes;
 
-        // Deduct 1 hour travel if workday > 6 hours
-        if (sumTotalMinutes / 60 > 6) {
+        // Deduct 1 hour travel if workday > 6 hours AND NOT on-call
+        if (sumTotalMinutes / 60 > 6 && !currentIsOnCall) { // NEW: Add !currentIsOnCall condition
             currentNetMinutes -= 60; // Subtract 60 minutes
         }
 
@@ -157,7 +158,8 @@ const App = () => {
                 jobs: currentJobs,                 // Use derived currentJobs
                 dayOfWeek: getDayOfWeek(selectedDate),
                 totalHours: sumTotalMinutes,
-                netHours: finalNetMinutes
+                netHours: finalNetMinutes,
+                isOnCall: currentIsOnCall, // NEW: Save isOnCall status
             }
         }));
 
@@ -166,10 +168,10 @@ const App = () => {
         setGeneratedWeeklyReport('');
         setReportError('');
 
-    }, [currentJobs, calculateJobTotal, selectedDate, currentEmployeeName, currentTruckNumber]); // Dependencies adjusted
+    }, [currentJobs, calculateJobTotal, selectedDate, currentEmployeeName, currentTruckNumber, currentIsOnCall]); // Dependencies adjusted
 
 
-    // Handle input changes for main header fields (Employee Name, Truck Number)
+    // Handle input changes for main header fields (Employee Name, Truck Number, On-Call)
     const handleHeaderInputChange = (field, value) => {
         setWeeklyData(prevWeeklyData => ({
             ...prevWeeklyData,
@@ -186,12 +188,13 @@ const App = () => {
     const handleJobInputChange = (jobId, field, value) => {
         setWeeklyData(prevWeeklyData => {
             const dayData = prevWeeklyData[selectedDate] || {
-                employeeName: currentEmployeeName, // Use derived currentEmployeeName
-                truckNumber: currentTruckNumber,   // Use derived currentTruckNumber
+                employeeName: currentEmployeeName,
+                truckNumber: currentTruckNumber,
                 jobs: [],
                 dayOfWeek: getDayOfWeek(selectedDate),
                 totalHours: 0,
                 netHours: 0,
+                isOnCall: false, // Ensure this is initialized if new day
             };
 
             const updatedJobs = dayData.jobs.map(job => {
@@ -223,6 +226,7 @@ const App = () => {
                 dayOfWeek: getDayOfWeek(selectedDate),
                 totalHours: 0,
                 netHours: 0,
+                isOnCall: false, // Ensure this is initialized if new day
             };
 
             if (dayData.jobs.length < 12) {
@@ -282,6 +286,7 @@ Employee Name: ${currentEmployeeName || 'N/A'}
 Truck Number: ${currentTruckNumber || 'N/A'}
 Date: ${selectedDate || 'N/A'}
 Day of Week: ${currentDayOfWeek || 'N/A'}
+On-Call Day: ${currentIsOnCall ? 'Yes' : 'No'}
 
 Job Details:
 `;
@@ -362,6 +367,8 @@ Net Working Hours: ${formatDecimalHours(currentNetHours)} Hrs
         - Format the output as a simple, easy-to-read text block or bulleted list.
         - ABSOLUTELY NO TABLES, MARKDOWN TABLES, OR ASCII ART TABLES.
         - Focus on clarity and readability for an email.
+        - Ensure all time entries (Travel Start, Work Start, Work Finish, Travel Home Arrival) are explicitly listed for each job.
+        - Clearly state if a day was "On-Call" and explain the travel deduction rule for on-call days in the final summary.
 
 Employee Name: ${currentEmployeeName || 'N/A'}
 Truck Number: ${currentTruckNumber || 'N/A'}
@@ -386,6 +393,7 @@ Week of: ${weeklyReportStartDate} to ${weeklyReportEndDate}
                 prompt += `\n${dayOfWeekForReport}, ${date}:\n`;
                 prompt += `  Total Hours: ${formatDecimalHours(dayData.totalHours || 0)} Hrs\n`;
                 prompt += `  Net Working Hours: ${formatDecimalHours(dayData.netHours || 0)} Hrs\n`;
+                prompt += `  On-Call Day: ${dayData.isOnCall ? 'Yes' : 'No'}\n`; // NEW: On-Call status in report
                 
                 if (!dayData || dayData.jobs.length === 0 || dayData.jobs.every(job => !job.jobNumber && !job.jobLocation && !job.travelStartTime && !job.workStartTime && !job.workFinishTime && !job.travelHomeTime)) {
                     prompt += "  Jobs: No job entries recorded.\n";
@@ -413,7 +421,9 @@ Week of: ${weeklyReportStartDate} to ${weeklyReportEndDate}
 --- Overall Weekly Summary ---
 Total Hours for the Week: ${formatDecimalHours(totalWeeklyHours)} Hrs
 Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)} Hrs
-`;
+
+Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour travel time deduction is NOT applied to the Net Working Hours calculation.
+`; // NEW: Explanation for on-call deduction
 
         try {
             let chatHistory = [];
@@ -518,6 +528,17 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
                             value={currentDayOfWeek} // Use derived dayOfWeek
                             readOnly // Day of week is derived
                         />
+                    </div>
+                    {/* NEW: On-Call Checkbox */}
+                    <div className="flex flex-col col-span-full sm:col-span-2 lg:col-span-1 items-start sm:items-center">
+                        <input
+                            type="checkbox"
+                            id="isOnCall"
+                            className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            checked={currentIsOnCall}
+                            onChange={(e) => handleHeaderInputChange('isOnCall', e.target.checked)}
+                        />
+                        <label htmlFor="isOnCall" className="text-sm font-medium text-gray-700 cursor-pointer">On-Call Day</label>
                     </div>
                 </div>
 
@@ -633,6 +654,7 @@ Total Net Working Hours for the Week: ${formatDecimalHours(totalWeeklyNetHours)}
                     </div>
                     <p className="text-sm text-gray-600 mt-4">
                         *Net Working Hours deducts 1 hour of travel if the total workday exceeds 6 hours, and 30 minutes for lunch if the total workday exceeds 4 hours.
+                        {currentIsOnCall && " (Note: Travel deduction is skipped for On-Call days.)"}
                     </p>
 
                     {/* Gemini API Feature: Generate Daily Report */}
