@@ -60,7 +60,7 @@ const getMondayOfCurrentWeek = () => {
     const day = d.getDay(); // Sunday - 0, Monday - 1, ..., Saturday - 6
     const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust if Sunday
     d.setDate(diff);
-    return d.toISOString().split('T')[0]; // FIX: Removed extra .toISOString()
+    return d.toISOString().split('T')[0];
 };
 
 // Function to get Sunday of the current week (for initial weekly report end date)
@@ -69,7 +69,7 @@ const getSundayOfCurrentWeek = () => {
     const day = d.getDay(); // Sunday - 0, Monday - 1, ..., Saturday - 6
     const diff = d.getDate() - day + 7; // Adjust if Sunday
     d.setDate(diff);
-    return d.toISOString().split('T')[0]; // FIX: Removed extra .toISOString()
+    return d.toISOString().split('T')[0];
 };
 
 
@@ -81,10 +81,10 @@ const App = () => {
     // State for the currently selected date (for daily input)
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
 
-    // Header info (employeeName, truckNumber) are now controlled by input and stored in weeklyData
-    // We'll manage them as part of the current day's data for editing
-    // const [employeeName, setEmployeeName] = useState(''); // These are derived from weeklyData now
-    // const [truckNumber, setTruckNumber] = useState('');   // These are derived from weeklyData now
+    // These are now derived from currentDayData for display, not separate states
+    // The actual values are stored within weeklyData[selectedDate]
+    // Removed: const [employeeName, setEmployeeName] = useState('');
+    // Removed: const [truckNumber, setTruckNumber] = useState('');
 
     const [generatedDailyReport, setGeneratedDailyReport] = useState('');
     const [generatedWeeklyReport, setGeneratedWeeklyReport] = useState('');
@@ -115,21 +115,6 @@ const App = () => {
     const currentEmployeeName = currentDayData.employeeName; // Derived for display
     const currentTruckNumber = currentDayData.truckNumber;   // Derived for display
     const currentIsOnCall = currentDayData.isOnCall;         // Derived for display
-
-
-    // EFFECT: Update top-level employeeName and truckNumber states when selectedDate changes
-    // This ensures the input fields reflect the data for the newly selected day.
-    useEffect(() => {
-        // Set employeeName and truckNumber states based on the data for the newly selected date
-        // If no data exists for the new date, they'll become empty strings.
-        setEmployeeName(currentDayData.employeeName);
-        setTruckNumber(currentDayData.truckNumber);
-        
-        // Clear reports when changing day
-        setGeneratedDailyReport('');
-        setGeneratedWeeklyReport('');
-        setReportError('');
-    }, [selectedDate, currentDayData.employeeName, currentDayData.truckNumber]);
 
 
     // Calculate total time worked for a single job (memoized)
