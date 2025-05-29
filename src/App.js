@@ -73,6 +73,11 @@ const getSundayOfCurrentWeek = () => {
     return monday.toISOString().split('T')[0];
 };
 
+// Helper function to sanitize a string for use in a filename
+const sanitizeFilename = (name) => {
+    return name.replace(/[^a-z0-9_.-]/gi, '_'); // Replace non-alphanumeric, non-underscore, non-dot, non-dash with underscore
+};
+
 
 const App = () => {
     // State to store all weekly data, keyed by date (YYYY-MM-DD)
@@ -504,7 +509,8 @@ Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour trav
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `ProAirMechanical_Timesheet_Daily_${selectedDate}.csv`);
+        const filename = `${sanitizeFilename(currentEmployeeName || 'Employee')}_Daily_Timesheet_${selectedDate}.csv`;
+        link.setAttribute("download", filename);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -571,7 +577,8 @@ Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour trav
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `ProAirMechanical_Timesheet_Week_${weeklyReportStartDate}_to_${weeklyReportEndDate}.csv`);
+        const filename = `${sanitizeFilename(currentEmployeeName || 'Employee')}_Weekly_Timesheet_${weeklyReportStartDate}_to_${weeklyReportEndDate}.csv`;
+        link.setAttribute("download", filename);
         document.body.appendChild(link); // Required for Firefox
         link.click();
         document.body.removeChild(link); // Clean up
@@ -786,7 +793,7 @@ Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour trav
                             </div>
                         )}
 
-                        {/* NEW: Download Daily Summary as CSV Button */}
+                        {/* Download Daily Summary as CSV Button */}
                         <div className="mt-4 pt-4 border-t border-gray-200 flex justify-center">
                             <button
                                 onClick={generateDailyCsvReport}
