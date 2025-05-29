@@ -1,4 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
+// Import jsPDF and html2canvas for PDF generation
+// These will be loaded via CDN in public/index.html
+// import { jsPDF } from 'jspdf'; // Not needed if loaded via CDN
+// import html2canvas from 'html2canvas'; // Not needed if loaded via CDN
 
 // Helper function to convert time string (HH:MM) to minutes from midnight
 const timeToMinutes = (timeString) => {
@@ -80,11 +84,6 @@ const App = () => {
     
     // State for the currently selected date (for daily input)
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
-
-    // These are now derived from currentDayData for display, not separate states
-    // The actual values are stored within weeklyData[selectedDate]
-    // Removed: const [employeeName, setEmployeeName] = useState('');
-    // Removed: const [truckNumber, setTruckNumber] = useState('');
 
     const [generatedDailyReport, setGeneratedDailyReport] = useState('');
     const [generatedWeeklyReport, setGeneratedWeeklyReport] = useState('');
@@ -188,8 +187,8 @@ const App = () => {
     const handleJobInputChange = (jobId, field, value) => {
         setWeeklyData(prevWeeklyData => {
             const dayData = prevWeeklyData[selectedDate] || {
-                employeeName: currentEmployeeName, // Use derived currentEmployeeName
-                truckNumber: currentTruckNumber,   // Use derived currentTruckNumber
+                employeeName: currentEmployeeName,
+                truckNumber: currentTruckNumber,
                 jobs: [],
                 dayOfWeek: getDayOfWeek(selectedDate),
                 totalHours: 0,
@@ -764,6 +763,22 @@ Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour trav
                             <span className="block sm:inline"> {reportError}</span>
                         </div>
                     )}
+
+                    {/* NEW: PDF and CSV Download Buttons */}
+                    <div className="mt-6 pt-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-center gap-3">
+                        <button
+                            onClick={() => generatePdfReport()}
+                            className="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200 ease-in-out transform hover:scale-105 flex items-center justify-center text-sm w-full sm:w-auto"
+                        >
+                            ⬇️ Download as PDF
+                        </button>
+                        <button
+                            onClick={() => generateCsvReport()}
+                            className="bg-green-700 hover:bg-green-800 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200 ease-in-out transform hover:scale-105 flex items-center justify-center text-sm w-full sm:w-auto"
+                        >
+                            ⬇️ Download as CSV
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
