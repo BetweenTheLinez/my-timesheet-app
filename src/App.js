@@ -55,24 +55,22 @@ const getDayOfWeek = (dateString) => {
 };
 
 // Function to get Monday of the current week (for initial weekly report start date)
-// This function correctly calculates the Monday of the current calendar week.
-// E.g., if today is Wednesday, it returns the past Monday. If today is Sunday, it returns the past Monday.
+// This function ensures the date is set to the Monday of the current calendar week.
 const getMondayOfCurrentWeek = () => {
     const d = new Date();
-    const day = d.getDay(); // Sunday - 0, Monday - 1, ..., Saturday - 6
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust if Sunday
+    d.setHours(0, 0, 0, 0); // Set to start of the day to avoid time component issues
+    const day = d.getDay(); // 0 for Sunday, 1 for Monday, ..., 6 for Saturday
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // If Sunday (0), go back 6 days. Otherwise, go back (day - 1) days.
     d.setDate(diff);
     return d.toISOString().split('T')[0];
 };
 
 // Function to get Sunday of the current week (for initial weekly report end date)
-// This function correctly calculates the Sunday of the current calendar week.
+// This function calculates Sunday based on the Monday of the current calendar week.
 const getSundayOfCurrentWeek = () => {
-    const d = new Date();
-    const day = d.getDay(); // Sunday - 0, Monday - 1, ..., Saturday - 6
-    const diff = d.getDate() - day + 7; // Adjust if Sunday
-    d.setDate(diff);
-    return d.toISOString().split('T')[0];
+    const monday = new Date(getMondayOfCurrentWeek() + 'T00:00:00'); // Get Monday as a Date object
+    monday.setDate(monday.getDate() + 6); // Add 6 days to Monday to get Sunday
+    return monday.toISOString().split('T')[0];
 };
 
 
