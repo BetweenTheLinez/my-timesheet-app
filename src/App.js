@@ -55,6 +55,8 @@ const getDayOfWeek = (dateString) => {
 };
 
 // Function to get Monday of the current week (for initial weekly report start date)
+// This function correctly calculates the Monday of the current calendar week.
+// E.g., if today is Wednesday, it returns the past Monday. If today is Sunday, it returns the past Monday.
 const getMondayOfCurrentWeek = () => {
     const d = new Date();
     const day = d.getDay(); // Sunday - 0, Monday - 1, ..., Saturday - 6
@@ -64,6 +66,7 @@ const getMondayOfCurrentWeek = () => {
 };
 
 // Function to get Sunday of the current week (for initial weekly report end date)
+// This function correctly calculates the Sunday of the current calendar week.
 const getSundayOfCurrentWeek = () => {
     const d = new Date();
     const day = d.getDay(); // Sunday - 0, Monday - 1, ..., Saturday - 6
@@ -257,7 +260,6 @@ const App = () => {
         setGeneratedDailyReport('');
         setReportError('');
 
-        // IMPORTANT: Replace "" with your actual Gemini API Key from Google AI Studio
         const apiKey = "AIzaSyDhV319hIAYhrBAsDaMLMnCO5RlBA0ml3U"; 
         if (!apiKey) {
             setReportError("API Key is not configured. Please add your API key to src/App.js.");
@@ -466,9 +468,6 @@ Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour trav
         window.location.href = mailtoLink;
         setReportError(''); // Clear any previous error messages
     };
-
-    // Removed generateDailyPdfReport as per user request
-    // Removed generatePdfReport as per user request
 
     // Function to generate and download DAILY CSV
     const generateDailyCsvReport = () => {
@@ -884,7 +883,7 @@ Note on Travel Deduction: For days marked as "On-Call", the standard 1-hour trav
                             onClick={generateCsvReport}
                             className="bg-green-700 hover:bg-green-800 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200 ease-in-out transform hover:scale-105 flex items-center justify-center text-sm w-full sm:w-auto"
                         >
-                            ⬇️ Download as CSV
+                            ⬇️ Download Weekly Summary as CSV
                         </button>
                     </div>
                 </div>
